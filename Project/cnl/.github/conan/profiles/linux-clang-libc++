@@ -1,0 +1,7 @@
+include(linux-clang)
+[settings]
+compiler.libcxx=libc++
+[options]
+[build_requires]
+[env]
+CONAN_CMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_DIR/clang-libc++.cmake

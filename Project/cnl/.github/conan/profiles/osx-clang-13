@@ -1,0 +1,11 @@
+include(osx)
+[settings]
+compiler=clang
+compiler.version=13
+compiler.libcxx=libc++
+[options]
+[build_requires]
+[env]
+CC=/usr/bin/clang
+CXX=/usr/bin/clang++
+CONAN_CMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_DIR/clang-libc++.cmake

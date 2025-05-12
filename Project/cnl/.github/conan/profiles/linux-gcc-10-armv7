@@ -1,0 +1,11 @@
+include(linux-gcc)
+[settings]
+arch=armv7
+compiler.version=10
+[options]
+int128=False
+[build_requires]
+[env]
+CC=arm-linux-gnueabi-gcc-10
+CXX=arm-linux-gnueabi-g++-10
+CONAN_CMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_DIR/gcc-armv7.cmake

@@ -1,0 +1,457 @@
+---
+name: push
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  # Build and test many combinations on Linux/OS X using Conan
+  clang-tidy:
+    strategy:
+      matrix:
+        int128: ["True", "False"]
+
+    container: johnmcfarlane/cnl_ci:clang-14-libcpp
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Restore Dependency Cache
+        uses: actions/cache@v2
+        env:
+          CACHE_SLUG: clang-tidy-conan
+        with:
+          path: |
+            /github/home/.conan/data
+          key: ${{ env.CACHE_SLUG }}-${{ github.ref_name }}-${{ hashFiles('conanfile.py','.github/conan/**','test/toolchain/**') }}
+          restore-keys: |
+            ${{ env.CACHE_SLUG }}-main-
+            ${{ env.CACHE_SLUG }}-${{ github.ref_name }}-
+            ${{ env.CACHE_SLUG }}-
+
+      - name: Restore Compiler Cache
+        uses: hendrikmuhs/ccache-action@v1
+        env:
+          CACHE_SLUG: clang-tidy-ccache
+        with:
+          key: ${{ env.CACHE_SLUG }}
+
+      - name: Cache Report
+        run: |
+          ccache -s
+          conan search
+
+      - name: Initialise Conan
+        run: |
+          conan config install $GITHUB_WORKSPACE/.github/conan/settings.yml
+
+      - name: Install dependencies
+        run: |
+          conan install \
+            --build=missing \
+            --profile $GITHUB_WORKSPACE/.github/conan/profiles/linux-clang-tidy \
+            --options int128=${{ matrix.int128 }} \
+            --options sanitize=False \
+            --env CONAN_CMAKE_GENERATOR=Ninja \
+            $GITHUB_WORKSPACE
+
+      - name: Build tests
+        run: conan build --build --configure $GITHUB_WORKSPACE
+
+      - name: Test library
+        run: conan build --test $GITHUB_WORKSPACE
+
+      - name: Cache Report
+        run: |
+          conan search
+
+  # Build and test many combinations on Linux/OS X using Conan
+  conan:
+    strategy:
+      matrix:
+        name: [
+          clang-14-libc++, clang-14-libstdc++,
+          clang-13-libc++, clang-13-libstdc++,
+          clang-12-libstdc++,
+          clang-11-libstdc++,
+          clang-10-libstdc++,
+          gcc-12, gcc-11, gcc-10, osx-clang-13, osx-gcc-11, gcc-10-armv7
+        ]
+        include:
+          # Clang-14
+          - name: clang-14-libc++
+            linux-container: johnmcfarlane/cnl_ci:clang-14-libcpp
+            os-version: ubuntu-20.04
+            profile: linux-clang-14-libc++
+          - name: clang-14-libstdc++
+            linux-container: johnmcfarlane/cnl_ci:clang-14-libstdcpp
+            os-version: ubuntu-20.04
+            profile: linux-clang-14-libstdc++
+
+          # Clang-13
+          - name: clang-13-libc++
+            linux-container: johnmcfarlane/cnl_ci:clang-13-libcpp
+            os-version: ubuntu-20.04
+            profile: linux-clang-13-libc++
+          - name: clang-13-libstdc++
+            linux-container: johnmcfarlane/cnl_ci:clang-13-libstdcpp
+            os-version: ubuntu-20.04
+            profile: linux-clang-13-libstdc++
+
+          # Clang-12 (Contrary)
+          - name: clang-12-libstdc++
+            generator: "Unix Makefiles"
+            linux-container: johnmcfarlane/cnl_ci:clang-12-libstdcpp
+            os-version: ubuntu-20.04
+            profile: linux-clang-12-libstdc++
+
+          # Clang-11
+          - name: clang-11-libstdc++
+            linux-container: johnmcfarlane/cnl_ci:clang-11-libstdcpp
+            os-version: ubuntu-20.04
+            profile: linux-clang-11-libstdc++
+
+          # Clang-10
+          - name: clang-10-libstdc++
+            linux-container: johnmcfarlane/cnl_ci:clang-10-libstdcpp
+            os-version: ubuntu-20.04
+            profile: linux-clang-10-libstdc++
+
+          # GCC-12
+          - name: gcc-12
+            linux-container: johnmcfarlane/cnl_ci:gcc-12
+            os-version: ubuntu-20.04
+            profile: linux-gcc-12
+
+          # GCC-11
+          - name: gcc-11
+            linux-container: johnmcfarlane/cnl_ci:gcc-11
+            os-version: ubuntu-20.04
+            profile: linux-gcc-11
+
+          # GCC-10
+          - name: gcc-10
+            generator: "Unix Makefiles"
+            linux-container: johnmcfarlane/cnl_ci:gcc-10
+            os-version: ubuntu-20.04
+            profile: linux-gcc-10
+
+          # OS X Clang (latest)
+          - name: osx-clang-13
+            os-version: macos-12
+            profile: osx-clang-13
+
+          # OS X GCC-11
+          - name: osx-gcc-11
+            os-version: macos-12
+            profile: osx-gcc-11
+
+          # GCC-10 (for ARMv7)
+          - name: gcc-10-armv7
+            linux-container: johnmcfarlane/cnl_ci:gcc-10-arm
+            os-version: ubuntu-20.04
+            profile: linux-gcc-10-armv7
+
+    container: ${{matrix.linux-container}}
+    runs-on: ${{matrix.os-version}}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Restore Dependency Cache
+        uses: actions/cache@v2
+        env:
+          CACHE_SLUG: conan-conan-${{ matrix.name }}
+        with:
+          path: |
+            /github/home/.conan/data
+            /Users/runner/.conan/data
+          key: ${{ env.CACHE_SLUG }}-${{ github.ref_name }}-${{ hashFiles('conanfile.py','.github/conan/**','test/toolchain/**') }}
+          restore-keys: |
+            ${{ env.CACHE_SLUG }}-main-
+            ${{ env.CACHE_SLUG }}-${{ github.ref_name }}-
+            ${{ env.CACHE_SLUG }}-
+
+      - name: Install Brew packages
+        if: ( matrix.os-version == 'macos-12' )
+        run: |
+          brew install ccache conan@1 ninja
+          echo "/usr/local/opt/conan@1/bin:$PATH" >> $GITHUB_PATH
+
+      - name: Restore Compiler Cache
+        uses: hendrikmuhs/ccache-action@v1
+        env:
+          CACHE_SLUG: conan-compiler-${{ matrix.name }}
+        with:
+          key: ${{ env.CACHE_SLUG }}
+
+      - name: Cache Report
+        run: |
+          ccache -s
+          conan search
+
+      - name: Initialise Conan
+        run: |
+          conan config install $GITHUB_WORKSPACE/.github/conan/settings.yml
+
+      - name: Install dependencies
+        env:
+          CONAN_CMAKE_GENERATOR: "${{matrix.generator}}"
+        run: |
+          conan install \
+            --build=missing \
+            --env:build CONAN_CMAKE_GENERATOR="${CONAN_CMAKE_GENERATOR:-Ninja}" \
+            --env:host CONAN_CMAKE_GENERATOR="${CONAN_CMAKE_GENERATOR:-Ninja}" \
+            --profile $GITHUB_WORKSPACE/.github/conan/profiles/${{matrix.profile}} \
+            $GITHUB_WORKSPACE
+
+      - name: Build tests
+        run: conan build --build --configure --install $GITHUB_WORKSPACE
+
+      - name: Test library
+        if: ( matrix.name != 'gcc-10-armv7' )
+        run: conan build --test $GITHUB_WORKSPACE
+
+      - name: Run benchmarks
+        if: ( matrix.name != 'clang-11' && matrix.name != 'gcc-10-armv7' )
+        run: |
+          ./test/benchmark/test-benchmark --benchmark_format=csv | tee result.csv \
+          "${GITHUB_WORKSPACE}"/test/benchmark/report.py result.csv
+
+      - name: Cache Report
+        run: |
+          conan search
+
+  # Build and test on Windows using Conan
+  windows:
+    strategy:
+      matrix:
+        name: [2022-64, 2022-32, 2019-64, 2019-32]
+        include:
+          - name: 2022-64
+            build-profile: msvc-17-x86_64
+            host-profile: msvc-17-x86_64
+            runs-on: "windows-2022"
+          - name: 2022-32
+            build-profile: msvc-17-x86_64
+            host-profile: msvc-17-x86
+            runs-on: "windows-2022"
+          - name: 2019-64
+            build-profile: msvc-16-x86_64
+            host-profile: msvc-16-x86_64
+            runs-on: "windows-2019"
+          - name: 2019-32
+            build-profile: msvc-16-x86_64
+            host-profile: msvc-16-x86
+            runs-on: "windows-2019"
+        build_type: ["Debug", "Release"]
+
+    runs-on: ${{matrix.runs-on}}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Restore Dependency Cache
+        uses: actions/cache@v2
+        env:
+          CACHE_SLUG: windows-dep-${{ matrix.name }}-${{ matrix.build_type }}
+        with:
+          path: |
+            ~\AppData\Local\pip\Cache
+            ~\.conan\data
+          key: ${{ env.CACHE_SLUG }}-${{ github.ref_name }}-${{ hashFiles('conanfile.py','.github/conan/**','test/toolchain/**') }}
+          restore-keys: |
+            ${{ env.CACHE_SLUG }}-main-
+            ${{ env.CACHE_SLUG }}-${{ github.ref_name }}-
+            ${{ env.CACHE_SLUG }}-
+
+      - name: Install Conan
+        run: |
+          pip.exe install conan<2;
+
+      - name: Cache Report
+        run: |
+          conan search
+
+      - name: Create build directory
+        run: mkdir ${{runner.workspace}}\build
+
+      - name: Install dependencies
+        working-directory: ${{runner.workspace}}/build
+        run: |
+          conan install `
+            --build=missing `
+            --profile:build $env:GITHUB_WORKSPACE/.github/conan/profiles/${{matrix.build-profile}} `
+            --profile:host $env:GITHUB_WORKSPACE/.github/conan/profiles/${{matrix.host-profile}} `
+            --settings:host build_type="${{matrix.build_type}}" `
+            $env:GITHUB_WORKSPACE
+
+      - name: Build and run tests
+        working-directory: ${{runner.workspace}}/build
+        run: conan build --build --configure --test $env:GITHUB_WORKSPACE
+
+      - name: Run benchmarks
+        working-directory: ${{runner.workspace}}/build
+        run: test\benchmark\${{matrix.build_type}}\test-benchmark.exe
+
+      - name: Cache Report
+        run: |
+          conan search
+
+  # Test documentation generation
+  doxygen:
+    runs-on: ubuntu-20.04
+    container: johnmcfarlane/cnl_ci:base-21.10
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Test Doxyfile
+        shell: bash
+        run: |
+          doxygen -s -u doc/Doxyfile
+          rm doc/Doxyfile.bak
+          git diff --exit-code
+
+      - name: Generate documentation
+        shell: bash
+        run: $GITHUB_WORKSPACE/doc/generate
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v2
+        with:
+          name: documentation
+          path: ${{github.workspace}}/htdocs
+
+  # Build and test latest on Linux using only CMake
+  cmake:
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        include:
+          - compiler: clang
+            stdlib-flag: "-stdlib=libstdc++"
+            toolchain: clang.cmake
+            container: johnmcfarlane/cnl_ci:clang-14-libstdcpp
+          - compiler: gcc
+            stdlib-flag: "-fsanitize=address,undefined"
+            toolchain: gcc.cmake
+            container: johnmcfarlane/cnl_ci:gcc-12
+        build_type: ["Release", "Debug"]
+        cxx-extensions: ["ON", "OFF"]
+        exceptions: ["ON", "OFF"]
+
+    container: ${{matrix.container}}
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Restore Compiler Cache
+        uses: hendrikmuhs/ccache-action@v1
+        env:
+          CACHE_SLUG: cmake-ccache-${{ matrix.compiler }}-${{ matrix.build_type }}-${{ matrix.cxx-extensions }}-${{ matrix.exceptions }}
+        with:
+          key: ${{ env.CACHE_SLUG }}-${{ hashFiles('test/toolchain/**') }}
+
+      - name: Cache Report
+        run: |
+          ccache -s
+
+      - name: Build and Install GTest
+        env:
+          CXXFLAGS: ${{matrix.stdlib-flag}}
+        run: |
+          git clone https://github.com/google/googletest.git
+          cd googletest
+          git checkout 8d51dc50eb7e7698427fed81b85edad0e032112e
+          cmake \
+            -DCMAKE_CXX_COMPILER_LAUNCHER:STRING=ccache \
+            -DCMAKE_TOOLCHAIN_FILE:FILEPATH=$GITHUB_WORKSPACE/test/toolchain/${{matrix.toolchain}} \
+            .
+          cmake --build . --target install
+
+      - name: Configure CNL
+        run: |
+          cmake \
+            -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+            -DCMAKE_CXX_COMPILER_LAUNCHER:STRING=ccache \
+            -DCMAKE_CXX_EXTENSIONS=${{matrix.cxx-extensions}} \
+            -DCMAKE_TOOLCHAIN_FILE:FILEPATH=$GITHUB_WORKSPACE/test/toolchain/${{matrix.toolchain}} \
+            -DCNL_EXCEPTIONS=${{matrix.exceptions}} \
+            -DCNL_SANITIZE=ON \
+            $GITHUB_WORKSPACE
+
+      - name: Build CNL
+        run: cmake --build $GITHUB_WORKSPACE --target test-all
+
+      - name: Test CNL
+        run: ctest --output-on-failure
+
+  # Install on mature Linux distro using only CMake
+  install:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure CNL
+        run: cmake $GITHUB_WORKSPACE
+
+      - name: Install CNL
+        run: sudo cmake --build $GITHUB_WORKSPACE --target install
+
+  # Test shell scripts
+  shellcheck:
+    runs-on: ubuntu-20.04
+    container: johnmcfarlane/cnl_ci:base-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Run shellcheck
+        shell: bash
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          $GITHUB_WORKSPACE/test/scripts/shellcheck
+
+  # Test YAML
+  yamllint:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Run yamllint
+        shell: bash
+        run: |
+          sudo apt install yamllint
+          $GITHUB_WORKSPACE/test/scripts/yamllint
+
+  # Lint with pre-commit
+  lint:
+    container: johnmcfarlane/cnl_ci:clang-14
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v3
+
+      - name: Load package caches
+        uses: actions/cache@v2
+        env:
+          CACHE_SLUG: ${{ github.job }}-${{ matrix.name }}
+        with:
+          path: |
+            /github/home/.cache/pre-commit
+          key: ${{ env.CACHE_SLUG }}-${{ github.ref_name }}
+          restore-keys: |
+            ${{ env.CACHE_SLUG }}-main
+            ${{ env.CACHE_SLUG }}-${{ github.ref_name }}
+            ${{ env.CACHE_SLUG }}-
+
+      - name: Run pre-commit
+        shell: bash
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          $GITHUB_WORKSPACE/test/scripts/lint
+...

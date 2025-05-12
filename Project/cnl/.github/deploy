@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+PROJECT_DIR=$(
+  cd "$(dirname "$0")"/..
+  pwd
+)
+
+# identifies a Semver tag prefixed with 'refs/tags/v', e.g. "refs/tags/v1.2.3" -> "1.2.3".
+
+# the "refs/tags/v1.2.3" bit
+release_pattern='refs\/tags\/v([[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
+# the "-alpha" bit
+prerelease_pattern='-([A-Za-z0-9-]+)'
+
+# Extract Semver from Git tag.
+echo "Tag: ${CNL_VERSION_TAG}"
+if [[ "${CNL_VERSION_TAG}" =~ ^${release_pattern}$ ]]
+then
+    CNL_VERSION="${BASH_REMATCH[1]}"
+    CNL_CHANNEL="stable"
+    export CNL_PROJECT_NUMBER=${CNL_VERSION}
+    echo "CNL version ${CNL_VERSION}"
+elif [[ "${CNL_VERSION_TAG}" =~ ^${release_pattern}${prerelease_pattern}$ ]]
+then
+    CNL_VERSION="${BASH_REMATCH[1]}"
+    CNL_CHANNEL="${BASH_REMATCH[2]}"
+    export CNL_PROJECT_NUMBER="${CNL_VERSION} (${CNL_CHANNEL})"
+    echo "CNL version ${CNL_VERSION}"
+else
+    echo "Tag ${CNL_VERSION_TAG} not recognized as Semver version tag in either of the forms:"
+    echo "  refs/tags/v1.2.3"
+    echo "  refs/tags/v1.2.3-alpha"
+    exit 1
+fi
+
+# Clone CNL at gh-pages branch
+git clone \
+  --branch gh-pages \
+  --single-branch \
+  "https://johnmcfarlane:${GITHUB_TOKEN}@github.com/johnmcfarlane/cnl.git" \
+  htdocs
+
+# Generate documentation
+rm -rf htdocs/*
+"${PROJECT_DIR}/doc/generate"
+
+# Push revision of documentation
+pushd htdocs
+git config --global user.email "github@john.mcfarlane.name"
+git config --global user.name "John McFarlane"
+git reset origin/gh-pages
+git checkout gh-pages
+git add .
+if git commit \
+  --amend \
+  --message="Documentation v${CNL_VERSION}-${CNL_CHANNEL}" \
+  --reset-author
+then
+  git push --force
+fi
+popd

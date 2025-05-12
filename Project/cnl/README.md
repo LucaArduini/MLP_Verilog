@@ -1,0 +1,180 @@
+# Compositional Numeric Library
+
+[![push](https://github.com/johnmcfarlane/cnl/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/johnmcfarlane/cnl/actions/workflows/test.yml)
+
+The Compositional Numeric Library (CNL) is a C++ library of fixed-precision
+numeric classes which enhance integers to deliver safer, simpler, cheaper
+arithmetic types. Documentation can be found [here](http://johnmcfarlane.github.io/cnl/).
+You can try out CNL on Compiler Explorer [here](https://godbolt.org/z/vzdvYzeqW).
+
+CNL is particularly well-suited to:
+
+* compute or energy-constrained environments where FPUs are absent or costly;
+* compute or energy-intensive environments where arithmetic is the bottleneck
+  such as simulations, machine learning applications and DSPs; and
+* domains such as finance where precision is essential.
+
+## Requirements
+
+The latest version of CNL requires a C++20-compatible tool chain.
+([Version 1.x](https://github.com/johnmcfarlane/cnl/tree/v1.x) supports C++11.)
+CNL is continually tested on the following systems:
+
+### Linux
+
+Tested:
+
+* GCC 10, 11, 12
+* Clang 10, 11, 12, 13, 14
+* libstdc++ 10, 11, 12
+* libc++ 13, 14
+* [CMake](https://cmake.org/download/) 3.23.1
+* Conan 1.48.1
+
+### OS X
+
+Tested:
+
+* GCC 11 / Clang 13
+* [CMake](https://cmake.org/download/) 3.23.1
+* Conan 1.48.1
+
+### Windows
+
+Tested:
+
+* Visual Studio 2019 Version 16 (19.29.30145.0)
+* Visual Studio 2022 Version 17 (19.32.31329.0)
+* [CMake](https://cmake.org/download/) 3.23.1
+* Conan 1.48.1
+
+## Instructions
+
+### Build
+
+CMake scripts are provided.
+
+* To build and install CNL on your system:
+
+```sh
+mkdir build && cd build
+cmake ..
+cmake --build . --target install
+```
+
+Note: you may need user privileges to install the library.
+Alternatively, you can install to user directory using [`CMAKE_INSTALL_PREFIX`](https://cmake.org/cmake/help/latest/variable/CMAKE_INSTALL_PREFIX.html#cmake-install-prefix):
+
+```sh
+mkdir build && cd build
+cmake -DCMAKE_INSTALL_PREFIX:FILE=/home/username/someplace ..
+cmake --build . --target install
+```
+
+Alternatively, CNL is a header-only library so you can simply point to the
+_include_ directory
+
+```sh
+c++ -isystem /path/to/cnl/include -std=c++20 my_program.cpp
+```
+
+or even include the root header directly in your code:
+
+```c++
+#include "/path/to/cnl/include/cnl/all.h"
+```
+
+### Test
+
+The test suite uses CMake and depends on Google Test and Google Benchmark.
+Optional integration tests use Boost.Multiprecision.
+
+1. Conan can be used to pull in essential dependencies.
+   This example assumes GCC but other tool chain files are provided:
+
+   ```shell
+   cd build
+   conan profile new --detect --force default
+   conan profile update settings.compiler.libcxx=libstdc++11 default  # GCC/Clang only
+   conan profile update env.CONAN_CMAKE_TOOLCHAIN_FILE=../test/toolchain/gcc.cmake default # GCC only
+   conan install --build=missing --options test=unit ..
+   ```
+
+   ... and then configure, build and run unit tests:
+
+   ```shell
+   conan build --configure --build --test ..
+   ```
+
+1. To run benchmarks, use `--options test=benchmark`...
+
+   ```shell
+   conan install --build=missing --options test=benchmark ..
+   ```
+
+   then configure and build
+
+   ```shell
+   conan build --configure --build ..
+   ```
+
+   and finally run explicitly to see the results.
+
+   ```shell
+   ./test/benchmark/test-benchmark
+   ```
+
+### Integration
+
+The API is exposed through headers in the [include](./include/) directory.
+Add this to your system header list and include, e.g.:
+
+```c++
+// to use a specific type:
+#include <cnl/scaled_integer.h>
+
+// or to include all CNL types:
+#include <cnl/all.h>
+```
+
+## Example Projects
+
+Examples of projects using CNL:
+
+* [CDSP](https://github.com/hbe72/cdsp) - Compositional DSP Library for
+  C++;
+* [BrewBlox firmware](https://github.com/BrewBlox/brewblox-firmware) - firmware
+  for a brewery controller
+* [cnl_example](https://github.com/johnmcfarlane/cnl_example) - minimal
+  CMake-based project which uses CNL as a dependency.
+
+## Further Reading
+
+* CNL [documentation](http://johnmcfarlane.github.io/cnl/)
+* CppCon 2017 [presentation](https://youtu.be/GEfmV3Xcuok)
+* Embedded Artistry [article](https://embeddedartistry.com/blog/2017/8/25/c11-fixed-point-arithemetic-library)
+* ISO C++ papers:
+  * [P0037](http://wg21.link/p0037) - Fixed-Point Real Numbers
+  * [P0554](http://wg21.link/p0554) - Composition of Arithmetic Types
+  * [P0827](http://wg21.link/p0827) - General-Purpose Constant Value Type
+  * [P0828](http://wg21.link/p0828) - Elastic Integers
+  * [P1050](http://wg21.link/p1050) - Fractional Numeric Type
+
+## Alternatives
+
+* Much of the simplicity and efficiency in CNL's API design can be traced back
+  to Matheus Izvekov's [fp](https://github.com/mizvekov/fp) fixed point library.
+* Together with Lawrence Crowl's fixed-point paper, [P0106](https://wg21.link/p0106r0),
+  it lays the groundwork for integer-backed real number approximation that minimizes
+  loss of performance and precision.
+* [fpm](https://github.com/MikeLankamp/fpm) is a fixed-point math library with a
+  high quantity of mathematical functions.
+* [Fixed Point Class](https://www.codeproject.com/Articles/37636/Fixed-Point-Class)
+  is a single-header C++98 solution from Peter Schregle's.
+
+## Contact Information
+
+All feedback greatly appreciated.
+
+* [CNL Issues](https://github.com/johnmcfarlane/cnl/issues)
+* [cnl@john.mcfarlane.name](mailto:cnl@john.mcfarlane.name)

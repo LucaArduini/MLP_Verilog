@@ -1,0 +1,23 @@
+---
+name: wide-integer
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  # Check for updates to wide-integer library
+  update-check:
+    runs-on: ubuntu-20.04
+    container: johnmcfarlane/cnl_ci:base-21.10
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Extract wide-integer source
+        shell: bash
+        run: $GITHUB_WORKSPACE/.github/update-wide-integer
+
+      - name: Check for changes
+        shell: bash
+        run: git diff --exit-code
+...
