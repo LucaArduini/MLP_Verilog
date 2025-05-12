@@ -1,0 +1,8 @@
+[
+{
+  "directory": "C:/Users/filip/MPL_Verilog/build",
+  "command": "C:\\mingw64\\bin\\g++.exe  @CMakeFiles/my_test.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\my_test.dir\\test.cpp.obj -c C:\\Users\\filip\\MPL_Verilog\\Project\\test.cpp",
+  "file": "C:/Users/filip/MPL_Verilog/Project/test.cpp",
+  "output": "CMakeFiles/my_test.dir/test.cpp.obj"
+}
+]
