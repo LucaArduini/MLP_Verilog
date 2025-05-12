@@ -1,0 +1,5 @@
+include(linux)
+[settings]
+compiler=clang
+[options]
+[build_requires]

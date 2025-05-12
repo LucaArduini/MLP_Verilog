@@ -1,0 +1,14 @@
+include(base)
+[settings]
+os=Windows
+os_build=Windows
+arch_build=x86_64
+compiler=Visual Studio
+compiler.cppstd=20
+[options]
+cppcheck=False
+int128=False
+iostreams=True
+sanitize=False
+[env]
+CONAN_CMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_DIR/msvc.cmake
