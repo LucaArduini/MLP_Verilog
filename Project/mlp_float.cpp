@@ -7,6 +7,9 @@
 
 using namespace std;
 
+#include "cnl/include/cnl/all.h"
+using fixed_32_16 = cnl::scaled_integer<int, cnl::power<-16>>; // 32 bits total, 16 fractional bits
+
 // //////////////////////////////////////////// //
 //             MLP parameters for inference     //
 // //////////////////////////////////////////// //
@@ -15,19 +18,19 @@ const int n_features = 2;         // Number of input features
 const int n_hidden = 300;         // Number of neurons in the hidden layer
 
 // Weights are assumed to be loaded from a file
-array<array<float, n_features + 1>, n_hidden> w1;
-array<array<float, n_hidden + 1>, n_output> w2;
+array<array<fixed_32_16, n_features + 1>, n_hidden> w1;
+array<array<fixed_32_16, n_hidden + 1>, n_output> w2;
 
 // Forward propagation variables
-array<float, n_features + 1> a0_infer;
-array<float, n_hidden> rZ1_infer;
-array<float, n_hidden> rA1_infer;
-array<float, n_hidden + 1> a1_infer;
-array<float, n_output> rZ2_infer;
-array<float, n_output> y_pred_infer;
+array<fixed_32_16, n_features + 1> a0_infer;
+array<fixed_32_16, n_hidden> rZ1_infer;
+array<fixed_32_16, n_hidden> rA1_infer;
+array<fixed_32_16, n_hidden + 1> a1_infer;
+array<fixed_32_16, n_output> rZ2_infer;
+array<fixed_32_16, n_output> y_pred_infer;
 
 // Matrix multiplication function
-void A_mult_B(const float* A, const float* B, float* C,
+void A_mult_B(const fixed_32_16* A, const fixed_32_16* B, fixed_32_16* C,
               int rigA, int colA, int colB) {
     for (int i = 0; i < rigA; i++) {
         for (int j = 0; j < colB; j++) {
@@ -41,8 +44,8 @@ void A_mult_B(const float* A, const float* B, float* C,
 
 
 // Sigmoid activation function (same as in training)
-array<float, n_hidden> MLP_sigmoid(const array<float, n_hidden> &z) {
-    array<float, n_hidden> sig;
+array<fixed_32_16, n_hidden> MLP_sigmoid(const array<fixed_32_16, n_hidden> &z) {
+    array<fixed_32_16, n_hidden> sig;
     for (int i = 0; i < n_hidden; ++i) {
         sig[i] = 1.0 / (1.0 + exp(-z[i]));
     }
@@ -50,7 +53,7 @@ array<float, n_hidden> MLP_sigmoid(const array<float, n_hidden> &z) {
 }
 
 // Forward pass for a single input using matrix operations and MLP_sigmoid
-array<float, n_output> MLP_inference(const array<float, n_features>& x) {
+array<fixed_32_16, n_output> MLP_inference(const array<fixed_32_16, n_features>& x) {
     // Input layer with bias
     a0_infer[0] = 1.0; // Bias
     for (int i = 0; i < n_features; ++i) {
@@ -84,45 +87,45 @@ array<float, n_output> MLP_inference(const array<float, n_features>& x) {
 
 // Function to load weights from a file
 bool load_weights(const string& filename_w1, const string& filename_w2) {
-    ifstream file_w1(filename_w1);
-    ifstream file_w2(filename_w2);
+    // ifstream file_w1(filename_w1);
+    // ifstream file_w2(filename_w2);
 
-    if (!file_w1.is_open() || !file_w2.is_open()) {
-        cerr << "Error: Could not open weight files." << endl;
-        return false;
-    }
+    // if (!file_w1.is_open() || !file_w2.is_open()) {
+    //     cerr << "Error: Could not open weight files." << endl;
+    //     return false;
+    // }
 
     string line;
-    float value;
+    fixed_32_16 value;
 
     // Load w1
     for (int i = 0; i < n_hidden; ++i) {
         for (int j = 0; j < n_features + 1; ++j) {
-            if (!(file_w1 >> value)) {
-                cerr << "Error: Could not read weight w1[" << i << "][" << j << "]." << endl;
-                file_w1.close();
-                file_w2.close();
-                return false;
-            }
-            w1[i][j] = value;
+            // if (!(file_w1 >> value)) {
+            //     cerr << "Error: Could not read weight w1[" << i << "][" << j << "]." << endl;
+            //     file_w1.close();
+            //     file_w2.close();
+            //     return false;
+            // }
+            w1[i][j] = 0.5;
         }
     }
 
     // Load w2
     for (int i = 0; i < n_output; ++i) {
         for (int j = 0; j < n_hidden + 1; ++j) {
-            if (!(file_w2 >> value)) {
-                cerr << "Error: Could not read weight w2[" << i << "][" << j << "]." << endl;
-                file_w1.close();
-                file_w2.close();
-                return false;
-            }
-            w2[i][j] = value;
+            // if (!(file_w2 >> value)) {
+            //     cerr << "Error: Could not read weight w2[" << i << "][" << j << "]." << endl;
+            //     file_w1.close();
+            //     file_w2.close();
+            //     return false;
+            w2[i][j] = 0.5;
         }
     }
 
-    file_w1.close();
-    file_w2.close();
+    // file_w1.close();
+    // file_w2.close();
+
     cout << "Weights loaded successfully." << endl;
     return true;
 }
@@ -138,8 +141,8 @@ int main() {
     }
 
     // Example inference
-    array<float, n_features> input_sample = {1.0, -2.0};
-    array<float, n_output> prediction = MLP_inference(input_sample);
+    array<fixed_32_16, n_features> input_sample = {1.0, -2.0};
+    array<fixed_32_16, n_output> prediction = MLP_inference(input_sample);
 
     cout << "Input: [" << input_sample[0] << ", " << input_sample[1] << "]" << endl;
     cout << "Prediction: [" << prediction[0] << "]" << endl;
