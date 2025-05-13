@@ -1,20 +1,14 @@
 #include <iostream>
 #include <vector>
 #include <array>
-#include <cmath> // Still useful for std::exp if cnl::exp isn't found or for comparison
+#include <cmath>
 #include <fstream>
 #include <sstream>
 
-#include <cnl/all.h> // For cnl::scaled_integer
-
-// Using namespaces for convenience in this .cpp file
 using namespace std;
-using namespace cnl;
 
-// Define the fixed-point type
-using fixed_point_32 = cnl::scaled_integer<int32_t, cnl::power<-20>>;
 
-// //////////////////////////////////////////// //
+// //////////////////////////////////////////// //using float = cnl::scaled_integer<int32_t, cnl::power<-16>>; // 8 bits total, 4 fractional bits
 //             MLP parameters for inference     //
 // //////////////////////////////////////////// //
 const int n_output = 1;         // Number of outputs
@@ -22,47 +16,53 @@ const int n_features = 2;         // Number of input features
 const int n_hidden = 300;         // Number of neurons in the hidden layer
 
 // Weights are assumed to be loaded from a file
-array<array<fixed_point_32, n_features + 1>, n_hidden> w1;
-array<array<fixed_point_32, n_hidden + 1>, n_output> w2;
+array<array<float, n_features + 1>, n_hidden> w1;
+array<array<float, n_hidden + 1>, n_output> w2;
 
 // Forward propagation variables
-array<fixed_point_32, n_features + 1> a0_infer;
-array<fixed_point_32, n_hidden> rZ1_infer;
-array<fixed_point_32, n_hidden> rA1_infer;
-array<fixed_point_32, n_hidden + 1> a1_infer;
-array<fixed_point_32, n_output> rZ2_infer;
-array<fixed_point_32, n_output> y_pred_infer;
+array<float, n_features + 1> a0_infer;
+array<float, n_hidden> rZ1_infer;
+array<float, n_hidden> rA1_infer;
+array<float, n_hidden + 1> a1_infer;
+array<float, n_output> rZ2_infer;
+array<float, n_output> y_pred_infer;
 
 // Matrix multiplication function
-void A_mult_B(const fixed_point_32* A, const fixed_point_32* B, fixed_point_32* C,
+void A_mult_B(const float* A, const float* B, float* C,
               int rigA, int colA, int colB) {
     for (int i = 0; i < rigA; i++) {
         for (int j = 0; j < colB; j++) {
-            C[i * colB + j] = fixed_point_32(0.0); // Initialize with fixed-point zero
+            C[i * colB + j] = 0.0;
             for (int k = 0; k < colA; k++) {
+                
                 C[i * colB + j] += A[i * colA + k] * B[k * colB + j];
+                if (i == 0 && j == 0) {
+                    cout << "A[" << i << "][" << k << "] * B[" << k << "][" << j << "] = " 
+                         << A[i * colA + k] << " * " << B[k * colB + j] 
+                         << " = " << A[i * colA + k] * B[k * colB + j] << endl; // Debugging line
+                }
             }
+        }
+        if (i == 0) {
+            cout << "C_data[0] (cout): " << C[0] << endl; // Debugging line
         }
     }
 }
 
 
-// Sigmoid activation function using fixed-point numbers
-array<fixed_point_32, n_hidden> MLP_sigmoid(const array<fixed_point_32, n_hidden> &z) {
-    array<fixed_point_32, n_hidden> sig;
+// Sigmoid activation function (same as in training)
+array<float, n_hidden> MLP_sigmoid(const array<float, n_hidden> &z) {
+    array<float, n_hidden> sig;
     for (int i = 0; i < n_hidden; ++i) {
-        // Use cnl::exp for fixed-point types.
-        // The expression will likely involve promotions to a floating-point type for exp,
-        // then conversion back to fixed_point_32.
-        sig[i] = fixed_point_32(1.0) / (fixed_point_32(1.0) + cnl::exp(-z[i]));
+        sig[i] = 1.0 / (1.0 + exp(-z[i]));
     }
     return sig;
 }
 
 // Forward pass for a single input using matrix operations and MLP_sigmoid
-array<fixed_point_32, n_output> MLP_inference(const array<fixed_point_32, n_features>& x) {
+array<float, n_output> MLP_inference(const array<float, n_features>& x) {
     // Input layer with bias
-    a0_infer[0] = fixed_point_32(1.0); // Bias
+    a0_infer[0] = 1.0; // Bias
     for (int i = 0; i < n_features; ++i) {
         a0_infer[i + 1] = x[i];
     }
@@ -70,14 +70,13 @@ array<fixed_point_32, n_output> MLP_inference(const array<fixed_point_32, n_feat
     // Hidden layer pre-activation: rZ1 = w1 * a0
     A_mult_B(w1[0].data(), a0_infer.data(), rZ1_infer.data(),
              n_hidden, n_features + 1, 1); // Treat a0 as a column vector
-
     printf("rZ1_infer[0] = %f\n", rZ1_infer[0]); // Debugging line
 
     // Hidden layer activation: rA1 = sigmoid(rZ1)
     rA1_infer = MLP_sigmoid(rZ1_infer);
 
     // Hidden layer output with bias
-    a1_infer[0] = fixed_point_32(1.0); // Bias
+    a1_infer[0] = 1.0; // Bias
     for (int i = 0; i < n_hidden; ++i) {
         a1_infer[i + 1] = rA1_infer[i];
     }
@@ -105,60 +104,40 @@ bool load_weights(const string& filename_w1, const string& filename_w2) {
     }
 
     string line;
-    // float value; // Original type
-    fixed_point_32 value; // Changed to fixed-point
+    float value;
 
     // Load w1
-    double maxerror = 0.0;
-    double meanerror = 0.0;
     for (int i = 0; i < n_hidden; ++i) {
-        
         for (int j = 0; j < n_features + 1; ++j) {
-            //If reading from file:
-            double temp_val_w1;
-            if (!(file_w1 >> temp_val_w1)) {
+            if (!(file_w1 >> value)) {
                 cerr << "Error: Could not read weight w1[" << i << "][" << j << "]." << endl;
                 file_w1.close();
                 file_w2.close();
                 return false;
             }
-            w1[i][j] = fixed_point_32(temp_val_w1);
-            
-            if (temp_val_w1 - w1[i][j] > maxerror) {
-                maxerror = temp_val_w1 - w1[i][j];
+            w1[i][j] = value;
+            if (i < 1){
+                printf("w1[%d][%d] = %f\n", i, j, w1[i][j]); // Debugging line
+                printf("value = %f\n", value); // Debugging line
             }
-            meanerror += temp_val_w1 - w1[i][j];
-            if (j == 0 && i == 0) {
-                cout << "w1[0][0] = " << w1[0][0] << endl; // Debugging line
-                printf("temp_val_w1 = %f\n", temp_val_w1); // Debugging line
-            }
-            
-            
-            //w1[i][j] = fixed_point_32(0.5); // Default value converted to fixed-point
         }
     }
-    printf("maxerror = %f\n", maxerror); // Debugging line
-    meanerror /= (n_hidden * (n_features + 1)); // Debugging line
-    printf("meanerror = %f\n", meanerror); // Debugging line
 
     // Load w2
     for (int i = 0; i < n_output; ++i) {
         for (int j = 0; j < n_hidden + 1; ++j) {
-            // If reading from file:
-            double temp_val_w2;
-            if (!(file_w2 >> temp_val_w2)) {
+            if (!(file_w2 >> value)) {
                 cerr << "Error: Could not read weight w2[" << i << "][" << j << "]." << endl;
                 file_w1.close();
                 file_w2.close();
                 return false;
             }
-            w2[i][j] = fixed_point_32(temp_val_w2);
-            //w2[i][j] = fixed_point_32(0.5); // Default value converted to fixed-point
+            w2[i][j] = value;
         }
     }
 
-    // file_w1.close();
-    // file_w2.close();
+    file_w1.close();
+    file_w2.close();
 
     cout << "Weights loaded successfully." << endl;
     return true;
@@ -175,11 +154,9 @@ int main() {
     }
 
     // Example inference
-    array<fixed_point_32, n_features> input_sample = {fixed_point_32(1.0), fixed_point_32(-2.0)};
-    array<fixed_point_32, n_output> prediction = MLP_inference(input_sample);
+    array<float, n_features> input_sample = {1.0, -2.0};
+    array<float, n_output> prediction = MLP_inference(input_sample);
 
-    // CNL types usually have operator<< overloaded for cout.
-    // If not, or for specific float-like output, cast to double: static_cast<double>(value)
     cout << "Input: [" << input_sample[0] << ", " << input_sample[1] << "]" << endl;
     cout << "Prediction: [" << prediction[0] << "]" << endl;
 
