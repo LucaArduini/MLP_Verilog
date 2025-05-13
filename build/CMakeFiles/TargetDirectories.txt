@@ -1,3 +1,0 @@
-C:/Users/filip/MPL_Verilog/build/CMakeFiles/my_test.dir
-C:/Users/filip/MPL_Verilog/build/CMakeFiles/edit_cache.dir
-C:/Users/filip/MPL_Verilog/build/CMakeFiles/rebuild_cache.dir

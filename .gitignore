@@ -1,0 +1,28 @@
+# Ignora la cartella di build
+/build/
+
+# Ignora i file temporanei di sistema
+.DS_Store
+Thumbs.db
+
+# Ignora le directory dei file oggetto e binari
+/bin/
+/obj/
+
+# Ignora i file generati da Visual Studio Code
+.vscode/
+
+# Ignora i file temporanei di compilazione
+*.o
+*.obj
+*.exe
+*.log
+
+# Ignora le librerie esterne (se scaricate localmente)
+/external/
+/libs/
+
+# Ignora cartelle specifiche del tuo progetto
+/temp/
+/output/
+/cache/
