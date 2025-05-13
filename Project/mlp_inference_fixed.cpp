@@ -5,7 +5,7 @@
 #include <fstream>
 #include <sstream>
 
-#include <cnl/all.h> // For cnl::scaled_integer
+#include "cnl/include/cnl/all.h" // For cnl::scaled_integer
 
 // Using namespaces for convenience in this .cpp file
 using namespace std;
@@ -53,14 +53,14 @@ void A_mult_B(const fixed_point_32* A_data, const fixed_point_32* B_data, fixed_
     using InputScaleTag = cnl::power<-20>; // Adjusted for 32-bit representation
 
     // Define the accumulator type
-    using Accumulator = cnl::scaled_integer<int64_t, cnl::power<-32>>;
+    using Accumulator = cnl::scaled_integer<int64_t, cnl::power<-16>>;
 
     for (int i = 0; i < rigA; i++) {
         for (int j = 0; j < colB; j++) {
             Accumulator temp_sum = Accumulator(0LL);
 
             for (int k = 0; k < colA; k++) {
-                auto product = A_data[i * colA + k] * B_data[k * colB + j];
+                fixed_point_32 product = A_data[i * colA + k] * B_data[k * colB + j];
                 temp_sum += product;
                 if (i == 0 && j == 0) {
                     cout << "A_data[" << i << "][" << k << "] * B_data[" << k << "][" << j << "] = " 
@@ -68,7 +68,7 @@ void A_mult_B(const fixed_point_32* A_data, const fixed_point_32* B_data, fixed_
                          << " = " << A_data[i * colA + k] * B_data[k * colB + j] << endl; // Debugging line
                 }
             }
-
+            
             C_data[i * colB + j] = static_cast<fixed_point_32>(temp_sum);
             if (i == 0 && j == 0) {
                 cout << "C_data[" << i << "][" << j << "] = " << C_data[i * colB + j] << endl; // Debugging line
