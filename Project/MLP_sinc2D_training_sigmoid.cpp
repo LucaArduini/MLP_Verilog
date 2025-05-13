@@ -505,6 +505,8 @@ void MLP_MSELIN_predict(float* x, float* y, int tot_elem) {
 
 
 int main() {
+    srand(static_cast<unsigned int>(time(nullptr)));            // Inizializzazione seme per rand()
+
     array<array<float, n_features>, num_train> x_train;
     array<float, num_train> y_train;
     sinc2D_gen(x_train[0].data(), y_train.data(), num_train);
@@ -554,14 +556,14 @@ int main() {
     for (int i = 0; i < y_train.size(); ++i) {
         acc_train += (y_train[i] - ytrain_pred[i])*(y_train[i] - ytrain_pred[i]);
     }
-    acc_train /= (2 * y_train.size());
+    acc_train /= (2.0 * y_train.size());
     printf("Training accuracy (MSE): %g\n", acc_train);
 
     float acc_test = 0.0;
     for (int i = 0; i < y_test.size(); ++i) {
         acc_test += (y_test[i] - ytest_pred[i])*(y_test[i] - ytest_pred[i]);
     }
-    acc_test /= (2 * y_test.size());
+    acc_test /= (2.0 * y_test.size());
     printf("Test accuracy: (MSE): %g\n", acc_test);
 
 
