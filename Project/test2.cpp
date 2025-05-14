@@ -21,10 +21,18 @@ fixed_point_32 fixed_point_multiply(fixed_point_32 a, fixed_point_32 b) {
 
     int64_t mul = (a_raw * b_raw) >> fractional_bits;
 
+    if (mul > std::numeric_limits<int32_t>::max()) {
+        std::cout << "Overflow detected!\n";
+        return fixed_point_32{std::numeric_limits<int32_t>::max()};
+    } else if (mul < std::numeric_limits<int32_t>::min()) {
+        std::cout << "Underflow detected!\n";
+        return fixed_point_32{std::numeric_limits<int32_t>::min()};
+    }
+
     std::cout << "raw mul: " << mul << "\n";
 
     std::bitset<64> bitres(mul);
-    std::cout << "Raw bits mul: " << bitres << '\n';
+    std::cout << "Raw bits m: " << bitres << '\n';
 
     std::bitset<32> bitsres(static_cast<int32_t>(mul));
     std::cout << "Raw bits res: " << bitsres << '\n';
@@ -33,10 +41,11 @@ fixed_point_32 fixed_point_multiply(fixed_point_32 a, fixed_point_32 b) {
 }
 
 int main() {
-    fixed_point_32 a = fixed_point_32{1.0f};
-    fixed_point_32 b = fixed_point_32{0.892839f};
+    fixed_point_32 a = fixed_point_32{2.0f};
+    fixed_point_32 b = fixed_point_32{3753.892839f};
     fixed_point_32 result = fixed_point_multiply(a, b);
 
     std::cout << "Result (float): " << static_cast<float>(result) << "\n";
     std::cout << "Result (raw bits): " << std::bitset<32>(impl::to_rep(result)) << "\n";
+    std::cout << "Result (fixed_point_32): " << result << "\n";
 }
