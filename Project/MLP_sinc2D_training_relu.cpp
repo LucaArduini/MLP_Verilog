@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <vector>
 #include <array>
@@ -14,7 +13,7 @@ using namespace std;
 
 
 const int num_train = 150*150;              // number of training pattern (put a square number here)
-const int num_test = 2500;
+const int num_test = 2250;
 
 
 // //////////////////////////////////////////// //

@@ -59,6 +59,15 @@ array<float, n_hidden> MLP_sigmoid(const array<float, n_hidden> &z) {
     return sig;
 }
 
+// This function computes the ReLU function for a scalar, a vector or a matrix
+void MLP_relu_inplace(const array<float, n_hidden> &z, array<float, n_hidden> &relu_out){
+    for (int i = 0; i < n_hidden; ++i) {
+        
+        relu_out[i] = max(0.0f, z[i]); // ReLU(x) = max(0, x)
+        
+    }
+}
+
 // Forward pass for a single input using matrix operations and MLP_sigmoid
 array<float, n_output> MLP_inference(const array<float, n_features>& x) {
     // Input layer with bias
@@ -73,7 +82,7 @@ array<float, n_output> MLP_inference(const array<float, n_features>& x) {
     printf("rZ1_infer[0] = %f\n", rZ1_infer[0]); // Debugging line
 
     // Hidden layer activation: rA1 = sigmoid(rZ1)
-    rA1_infer = MLP_sigmoid(rZ1_infer);
+    MLP_relu_inplace(rZ1_infer, rA1_infer);
 
     // Hidden layer output with bias
     a1_infer[0] = 1.0; // Bias

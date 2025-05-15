@@ -7,6 +7,7 @@
 
 #include "cnl/include/cnl/all.h" // For cnl::scaled_integer
 
+namespace impl = cnl::_impl;
 // Using namespaces for convenience in this .cpp file
 using namespace std;
 using namespace cnl;
@@ -57,19 +58,34 @@ void A_mult_B(const fixed_point_32* A_data, const fixed_point_32* B_data, fixed_
 
     for (int i = 0; i < rigA; i++) {
         for (int j = 0; j < colB; j++) {
-            Accumulator temp_sum = Accumulator(0LL);
+            int64_t temp_sum = 0;
 
             for (int k = 0; k < colA; k++) {
-                fixed_point_32 product = A_data[i * colA + k] * B_data[k * colB + j];
+                fixed_point_32 a = A_data[i * colA + k];
+                fixed_point_32 b = B_data[k * colB + j];
+                int64_t a_raw = impl::to_rep(a);
+                int64_t b_raw = impl::to_rep(b);
+                int64_t product = (a_raw * b_raw) >> fractional_bits; // Adjusted for 32-bit representation
+                // Check for overflow   
+                if (product > std::numeric_limits<int32_t>::max()) {
+                    cout << "Overflow detected!" << endl;
+                    product = std::numeric_limits<int32_t>::max();
+                } else if (product < std::numeric_limits<int32_t>::min()) {
+                    cout << "Underflow detected!" << endl;
+                    product = std::numeric_limits<int32_t>::min();
+                }
+
+
+                
                 temp_sum += product;
                 if (i == 0 && j == 0) {
                     cout << "A_data[" << i << "][" << k << "] * B_data[" << k << "][" << j << "] = " 
                          << A_data[i * colA + k] << " * " << B_data[k * colB + j] 
-                         << " = " << A_data[i * colA + k] * B_data[k * colB + j] << endl; // Debugging line
+                         << " = " << cnl::from_rep<fixed_point_32, int32_t>{}(static_cast<int32_t>(product)) << endl; // Debugging line
                 }
             }
             
-            C_data[i * colB + j] = static_cast<fixed_point_32>(temp_sum);
+            C_data[i * colB + j] = cnl::from_rep<fixed_point_32, int32_t>{}(static_cast<int32_t>(temp_sum));
             if (i == 0 && j == 0) {
                 cout << "C_data[" << i << "][" << j << "] = " << C_data[i * colB + j] << endl; // Debugging line
             }   
@@ -83,6 +99,7 @@ void A_mult_B(const fixed_point_32* A_data, const fixed_point_32* B_data, fixed_
 }
 
 
+
 // Sigmoid activation function using fixed-point numbers
 array<fixed_point_32, n_hidden> MLP_sigmoid(const array<fixed_point_32, n_hidden> &z) {
     array<fixed_point_32, n_hidden> sig;
@@ -90,9 +107,46 @@ array<fixed_point_32, n_hidden> MLP_sigmoid(const array<fixed_point_32, n_hidden
         // Use cnl::exp for fixed-point types.
         // The expression will likely involve promotions to a floating-point type for exp,
         // then conversion back to fixed_point_32.
-        sig[i] = fixed_point_32(1.0) / (fixed_point_32(1.0) + cnl::exp(-z[i]));
+        fixed_point_32 a = fixed_point_32{1.0};
+        fixed_point_32 b = cnl::exp(-z[i]);
+        int64_t a_raw = impl::to_rep(a);
+        int64_t numerator = a_raw << fractional_bits; // Adjusted for 32-bit representation
+        int64_t b_raw = impl::to_rep(b);
+        int64_t res = (numerator /(b_raw + a_raw)); // Adjusted for 32-bit representation
+        // Check for overflow   
+        if (res > std::numeric_limits<int32_t>::max()) {
+            cout << "Overflow detected!" << endl;
+            res = std::numeric_limits<int32_t>::max();
+        } else if (res < std::numeric_limits<int32_t>::min()) {
+            cout << "Underflow detected!" << endl;
+            res = std::numeric_limits<int32_t>::min();
+        }
+        // Convert back to fixed_point_32
+
+
+        sig[i] = cnl::from_rep<fixed_point_32, int32_t>{}(static_cast<int32_t>(res));
+        
+        cout << "res = " << res << endl; // Debugging line
+        cout << "z[" << i << "] = " << z[i] << endl; // Debugging line
+        cout << "exp(-z[" << i << "]) = " << cnl::exp(-z[i]) << endl; // Debugging line
+        cout << "sig[" << i << "] = " << sig[i] << endl; // Debugging line
     }
     return sig;
+}
+
+void MLP_relu_inplace_fixed(
+    const std::array<fixed_point_32, n_hidden>& z,
+    std::array<fixed_point_32, n_hidden>& relu_out)
+{
+    // The fixed-point representation of 0.0
+    const fixed_point_32 zero_val = fixed_point_32{0.0};
+    // Alternatively, and often more efficient if the Rep is simple:
+    // const FixedPoint8_8 zero_val = FixedPoint8_8::from_rep(0);
+
+    for (size_t i = 0; i < n_hidden; ++i) {
+        // std::max will work because cnl::scaled_integer overloads comparison operators
+        relu_out[i] = std::max(zero_val, z[i]);
+    }
 }
 
 // Forward pass for a single input using matrix operations and MLP_sigmoid
@@ -101,6 +155,7 @@ array<fixed_point_32, n_output> MLP_inference(const array<fixed_point_32, n_feat
     a0_infer[0] = fixed_point_32(1.0); // Bias
     for (int i = 0; i < n_features; ++i) {
         a0_infer[i + 1] = x[i];
+        cout << "a0_infer[" << i + 1 << "] = " << a0_infer[i + 1] << endl; // Debugging line
     }
 
     // Hidden layer pre-activation: rZ1 = w1 * a0
@@ -110,7 +165,7 @@ array<fixed_point_32, n_output> MLP_inference(const array<fixed_point_32, n_feat
     cout << "rZ1_infer[0] (cout): " << rZ1_infer[0] << endl;
     
     // Hidden layer activation: rA1 = sigmoid(rZ1)
-    rA1_infer = MLP_sigmoid(rZ1_infer);
+    MLP_relu_inplace_fixed(rZ1_infer,  rA1_infer);
 
     // Hidden layer output with bias
     a1_infer[0] = fixed_point_32(1.0); // Bias
@@ -151,23 +206,28 @@ bool load_weights(const string& filename_w1, const string& filename_w2) {
         
         for (int j = 0; j < n_features + 1; ++j) {
             //If reading from file:
-            double temp_val_w1;
+            float temp_val_w1;
             if (!(file_w1 >> temp_val_w1)) {
                 cerr << "Error: Could not read weight w1[" << i << "][" << j << "]." << endl;
                 file_w1.close();
                 file_w2.close();
                 return false;
             }
-            w1[i][j] = fixed_point_32(temp_val_w1);
+            w1[i][j] = fixed_point_32{temp_val_w1};
+
+            if (i < 5 && j < 5) {
+                cout << "w1[" << i << "][" << j << "] = " << w1[i][j] << endl; // Debugging line
+                printf("temp_val_w1 = %f\n", temp_val_w1); // Debugging line
+            }
             
             if (temp_val_w1 - w1[i][j] > maxerror) {
                 maxerror = temp_val_w1 - w1[i][j];
             }
             meanerror += temp_val_w1 - w1[i][j];
-            if (j == 0 && i == 0) {
-                cout << "w1[0][0] = " << w1[0][0] << endl; // Debugging line
-                printf("temp_val_w1 = %f\n", temp_val_w1); // Debugging line
-            }
+            // if (j == 0 && i == 0) {
+            //     cout << "w1[0][0] = " << w1[0][0] << endl; // Debugging line
+            //     printf("temp_val_w1 = %f\n", temp_val_w1); // Debugging line
+            // }
             
             
             //w1[i][j] = fixed_point_32(0.5); // Default value converted to fixed-point
@@ -188,13 +248,17 @@ bool load_weights(const string& filename_w1, const string& filename_w2) {
                 file_w2.close();
                 return false;
             }
-            w2[i][j] = fixed_point_32(temp_val_w2);
+            w2[i][j] = fixed_point_32{temp_val_w2};
+            if (w2[i][j] == 0) {
+                cout << "w2[0][0] = " << w2[0][0] << endl; // Debugging line
+                printf("temp_val_w2 = %f\n", temp_val_w2); // Debugging line
+            }
             //w2[i][j] = fixed_point_32(0.5); // Default value converted to fixed-point
         }
     }
 
-    // file_w1.close();
-    // file_w2.close();
+     file_w1.close();
+     file_w2.close();
 
     cout << "Weights loaded successfully." << endl;
     return true;
