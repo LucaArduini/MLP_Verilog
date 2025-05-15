@@ -28,6 +28,15 @@ module MLP_mac #(
         end else if (valid) begin
             acc <= acc + product_ext;
         end
+        // Implicit case:
+        // else if (start == 0 && valid == 0)
+        //     // acc <= acc; (which is redundant and typically not written)
+        //     // Inside an always @(posedge clk) block, if a 'reg' type variable
+        //     // is not assigned a new value in any branch of the conditional logic
+        //     // for a given clock edge, it retains its previous value.
+        //     // This is the fundamental behavior of a memory element (like a flip-flop):
+        //     // it "remembers" its state.
+        // end
     end
 
 endmodule

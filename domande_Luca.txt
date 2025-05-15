@@ -1,0 +1,3 @@
+    MLP_mac.v
+1. chi è che mette start a zero (nel ciclo successivo a quello in cui è stato messo a 1)?
+2. in questo file manca il discorso del RESET, va aggiunto in questo file oppure viene gestito in un altro modo? magari viene dato 0 in ingresso ad 'a' e 'b' quando si vuole resettare il mac.
