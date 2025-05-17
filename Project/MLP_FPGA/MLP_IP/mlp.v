@@ -95,7 +95,7 @@ module mlp #(
 				IDLE: begin
 					// Wait for software to set the run bit
 					if (ctrl[CTRL_RUN_BIT])
-						state <= RUN_LAYER0;
+						state <= PRE_RUN_LAYER0;
 				end
 
 				PRE_RUN_LAYER0: begin
@@ -105,7 +105,7 @@ module mlp #(
 
 				RUN_LAYER0: begin
 					// Process inputs to hidden layer
-					if (input_index == N_INPUTS_HIDDEN)
+					if (input_index == N_INPUTS_HIDDEN - 1)
 						state <= RUN_ReLU0;
 				end
 
@@ -121,7 +121,7 @@ module mlp #(
 
 				RUN_LAYER1: begin
 					// Process hidden outputs to final output layer
-					if (hidden_index == N_INPUTS_OUTPUT)
+					if (hidden_index == N_INPUTS_OUTPUT - 1)
 						state <= RUN_ReLU1;
 				end
 

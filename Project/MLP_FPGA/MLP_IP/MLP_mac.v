@@ -1,7 +1,7 @@
 module MLP_mac #(
-    parameter A_WIDTH = 8,   // Bit-width of input A
-    parameter B_WIDTH = 8,   // Bit-width of input B
-    parameter ACC_WIDTH = 32   // Bit-width of the result/accumulator
+    parameter A_WIDTH = 8,      // Bit-width of input A
+    parameter B_WIDTH = 8,      // Bit-width of input B
+    parameter ACC_WIDTH = 32    // Bit-width of the result/accumulator
 )(
     input clk,
     input start,      // Initializes acc = a * b
