@@ -1,6 +1,7 @@
 #include <cnl/scaled_integer.h>
 #include <iostream>
 #include <bitset>
+#include <iomanip>
 #include <limits> // Required for std::numeric_limits
 namespace impl = cnl::_impl;
 
@@ -18,6 +19,8 @@ fixed_point_32 fixed_point_multiply(fixed_point_32 a, fixed_point_32 b) {
     std::cout << "Raw bits a: " << bita << '\n';
     std::bitset<64> bitb(b_raw);
     std::cout << "Raw bits b: " << bitb << '\n';
+
+    std::cout << "a.raw (hex): 0x" << std::hex << std::setw(8) << std::setfill('0') << a_raw  << "\n";
 
     int64_t mul = (a_raw * b_raw) >> fractional_bits;
 
@@ -76,7 +79,7 @@ fixed_point_32 fixed_point_divide(fixed_point_32 a, fixed_point_32 b) {
 int main() {
     fixed_point_32 a = fixed_point_32{-10.0f};
     fixed_point_32 b = fixed_point_32{-2.0f};
-    fixed_point_32 result = fixed_point_divide(a, b);
+    fixed_point_32 result = fixed_point_multiply(a, b);
     fixed_point_32 result2 = result + fixed_point_32{21.5632f};
 
 

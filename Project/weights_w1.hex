@@ -1,0 +1,16 @@
+// Q8.8 Hex Weights (Total Bits: 16, Fractional Bits: 8)
+// Scaled by 2^8 = 256
+// Integer Range: [-32768, 32767]
+// Float Range Approx: [-128, 127.996]
+00000000 // Original: -0.68864167, Q_Int: -.6875
+00000000 // Original: 0.09300303, Q_Int: .08984375
+00000000 // Original: 0.55682021, Q_Int: .5546875
+00000000 // Original: -0.93831527, Q_Int: -.9375
+00000000 // Original: -0.17286634, Q_Int: -.171875
+00000000 // Original: -0.79605848, Q_Int: -.79296875
+00000000 // Original: 0.93891597, Q_Int: .9375
+00000000 // Original: 0.19598281, Q_Int: .1953125
+00000000 // Original: -0.73822761, Q_Int: -.734375
+00000000 // Original: -0.25767380, Q_Int: -.25390625
+00000000 // Original: -0.76982307, Q_Int: -.76953125
+00000000 // Original: 0.06871188, Q_Int: .06640625

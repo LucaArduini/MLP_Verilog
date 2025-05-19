@@ -3,13 +3,18 @@
 #include <array>
 #include <cmath>
 #include <algorithm>
+#include <bitset>
 #include <random>
 #include <ctime>
+#include <bitset>
+
 #include <limits>
 #include <fstream>
 #include <iomanip>
 #include <numeric>
+#include <cnl/all.h> // For cnl::scaled_integer
 using namespace std;
+namespace impl = cnl::_impl;
 
 
 const int num_train = 150*150;              // number of training pattern (put a square number here)
@@ -21,8 +26,8 @@ const int num_test = 2250;
 // //////////////////////////////////////////// //
 const int n_output = 1;                     // Number of outputs
 const int n_features = 2;                   // Number of input features
-const int n_hidden = 300;                   // Number of neurons in the hidden layer
-const int epochs = 500;                     // Number of epochs
+const int n_hidden = 4;                   // Number of neurons in the hidden layer
+const int epochs = 20;                     // Number of epochs
 float eta = 1e-6;                           // Learning rate
 const int minibatches = 30;                 // Number of mini-batches
 
@@ -32,6 +37,16 @@ array<array<float, n_hidden+1>, n_output> w2 = {};
 
 
 
+const int TOTAL_BITS = 16;
+const int FRACTIONAL_BITS = 8;
+const int INTEGER_BITS = TOTAL_BITS - FRACTIONAL_BITS;
+
+const double SCALE_FACTOR = std::pow(2.0, FRACTIONAL_BITS);
+const long long MIN_INT_VAL = -(1LL << (TOTAL_BITS - 1));        // e.g., -32768 for 16 bits
+const long long MAX_INT_VAL = (1LL << (TOTAL_BITS - 1)) - 1;     // e.g.,  32767 for 16 bits
+
+// Define the fixed-point type
+using fixed_point_16 = cnl::scaled_integer<int16_t, cnl::power<-FRACTIONAL_BITS>>;
 
 // Global declaration of variable used in the train step
 const int elem = (num_train + minibatches -1 )/minibatches;     // inputs used in each minibatch
@@ -467,12 +482,27 @@ void MLP_MSELIN_train(const array<array<float, n_features>, num_train> &x, const
 
     }
     printf("Training completed.\n");
-    // --- Save the trained weights to files ---
-    ofstream w1_file("weights_w1.txt");
+    // --- Save weights w1 ---
+    ofstream w1_file_txt("weights_w1.txt");
+    ofstream w1_file_hex("weights_w1.hex");
+    ofstream w1_file_bin("weights_w1.bin");
+
+    ofstream w1_file("weights_w1_luca.txt");
     if (w1_file.is_open()) {
+        unsigned char *p;
+
         for (int i = 0; i < n_hidden; ++i) {
             for (int j = 0; j < n_features + 1; ++j) {
-                w1_file << fixed << setprecision(8) << w1[i][j] << (j == n_features ? "" : " ");
+                fixed_point_16 tmp = fixed_point_16{w1[i][j]};
+                p = (unsigned char *)&tmp;
+
+                for (int i = sizeof(tmp) - 1; i >= 0; i--) {
+                    for (int bit = 7; bit >= 0; bit--) {
+                        w1_file << ((p[i] >> bit) & 1);
+                    }
+                }
+                w1_file << (j == n_features ? "" : " ");
+
             } // We use fixed and setprecision(8) to ensure a consistent number of decimal places are saved, which should be sufficient for our fixed-point conversion later.
             w1_file << endl;
         }
@@ -482,18 +512,121 @@ void MLP_MSELIN_train(const array<array<float, n_features>, num_train> &x, const
         cerr << "Unable to open file weights_w1.txt for writing." << endl;
     }
 
-    ofstream w2_file("weights_w2.txt");
-    if (w2_file.is_open()) {
+    if (w1_file_txt.is_open()) {
+        cout << "Saving weights w1 to weights_w1.txt (float)..." << endl;
+        for (int i = 0; i < n_hidden; ++i) {
+            for (int j = 0; j < n_features + 1; ++j) {
+                w1_file_txt << fixed << setprecision(8) << w1[i][j] << (j == n_features ? "" : " ");
+            }
+            w1_file_txt << endl;
+        }
+        w1_file_txt.close();
+        cout << "Weights w1 saved to weights_w1.txt" << endl;
+    } else {
+        cerr << "Unable to open file weights_w1.txt for writing." << endl;
+    }
+
+    if (w1_file_hex.is_open()) {
+        cout << "Saving weights w1 to weights_w1.hex (Q8.8 Hex)..." << endl;
+        w1_file_hex << "// Q8.8 Hex Weights (Total Bits: " << TOTAL_BITS
+                    << ", Fractional Bits: " << FRACTIONAL_BITS << ")\n";
+        w1_file_hex << "// Scaled by 2^" << FRACTIONAL_BITS << " = " << SCALE_FACTOR << "\n";
+        w1_file_hex << "// Integer Range: [" << MIN_INT_VAL << ", " << MAX_INT_VAL << "]\n";
+        w1_file_hex << "// Float Range Approx: [" << MIN_INT_VAL/SCALE_FACTOR << ", " << MAX_INT_VAL/SCALE_FACTOR << "]\n";
+        for (int i = 0; i < n_hidden; ++i) {
+            for (int j = 0; j < n_features + 1; ++j) {
+                fixed_point_16 q_int_val = fixed_point_16{w1[i][j]};
+                int16_t q_int_val_scaled = static_cast<int16_t>(q_int_val);
+                // Ensure the value is within the range of int16_t
+                if (q_int_val_scaled < MIN_INT_VAL || q_int_val_scaled > MAX_INT_VAL) {
+                    cerr << "Warning: Value out of range for Q8.8 representation: " << w1[i][j] << endl;
+                }
+                w1_file_hex << std::hex << std::setw(8) << std::setfill('0') << q_int_val_scaled << std::dec << " // Original: " << fixed << setprecision(8) << w1[i][j]
+                            << ", Q_Int: " << q_int_val << endl;
+            }
+        }
+        w1_file_hex.close();
+        cout << "Weights w1 saved to weights_w1.hex" << endl;
+    } else {
+        cerr << "Unable to open file weights_w1.hex for writing." << endl;
+    }
+
+    if (w1_file_bin.is_open()) {
+        cout << "Saving weights w1 to weights_w1.bin (Q8.8 Binary)..." << endl;
+        w1_file_bin << "// Q8.8 Binary Weights (Total Bits: " << TOTAL_BITS
+                    << ", Fractional Bits: " << FRACTIONAL_BITS << ")\n";
+        // Add similar header comments as for hex if desired
+        for (int i = 0; i < n_hidden; ++i) {
+            for (int j = 0; j < n_features + 1; ++j) {
+                fixed_point_16 q_int_val = fixed_point_16{w1[i][j]};
+                int16_t q_int_val_scaled = impl::to_rep(q_int_val);
+                std::bitset<16> bin_str (q_int_val_scaled);
+                w1_file_bin << bin_str << " // Original: " << fixed << setprecision(8) << w1[i][j]
+                            << ", Q_Int: " << q_int_val << endl;
+            }
+        }
+        w1_file_bin.close();
+        cout << "Weights w1 saved to weights_w1.bin" << endl;
+    } else {
+        cerr << "Unable to open file weights_w1.bin for writing." << endl;
+    }
+
+    // --- Save weights w2 ---
+    ofstream w2_file_txt("weights_w2.txt");
+    ofstream w2_file_hex("weights_w2.hex");
+    ofstream w2_file_bin("weights_w2.bin");
+
+    if (w2_file_txt.is_open()) {
+        cout << "Saving weights w2 to weights_w2.txt (float)..." << endl;
         for (int i = 0; i < n_output; ++i) {
             for (int j = 0; j < n_hidden + 1; ++j) {
-                w2_file << fixed << setprecision(8) << w2[i][j] << (j == n_hidden ? "" : " ");
+                w2_file_txt << fixed << setprecision(8) << w2[i][j] << (j == n_hidden ? "" : " ");
             }
-            w2_file << endl;
+            w2_file_txt << endl;
         }
-        w2_file.close();
+        w2_file_txt.close();
         cout << "Weights w2 saved to weights_w2.txt" << endl;
     } else {
         cerr << "Unable to open file weights_w2.txt for writing." << endl;
+    }
+
+    if (w2_file_hex.is_open()) {
+        cout << "Saving weights w2 to weights_w2.hex (Q8.8 Hex)..." << endl;
+        w2_file_hex << "// Q8.8 Hex Weights (Total Bits: " << TOTAL_BITS
+                    << ", Fractional Bits: " << FRACTIONAL_BITS << ")\n";
+        // ... (add full header comments)
+        for (int i = 0; i < n_output; ++i) {
+            for (int j = 0; j < n_hidden + 1; ++j) {
+                fixed_point_16 q_int_val = fixed_point_16{w2[i][j]};
+                int16_t hex_str = static_cast<int16_t>(q_int_val);
+                w2_file_hex << std::hex << std::setw(8) << std::setfill('0') << hex_str << " // Original: " << fixed << setprecision(8) << w2[i][j]
+                            << ", Q_Int: " << q_int_val << endl;
+            }
+        }
+        w2_file_hex.close();
+        cout << "Weights w2 saved to weights_w2.hex" << endl;
+    } else {
+        cerr << "Unable to open file weights_w2.hex for writing." << endl;
+    }
+
+     if (w2_file_bin.is_open()) {
+        cout << "Saving weights w2 to weights_w2.bin (Q8.8 Binary)..." << endl;
+        w2_file_bin << "// Q8.8 Binary Weights (Total Bits: " << TOTAL_BITS
+                    << ", Fractional Bits: " << FRACTIONAL_BITS << ")\n";
+        // ... (add full header comments)
+        for (int i = 0; i < n_output; ++i) {
+            for (int j = 0; j < n_hidden + 1; ++j) {
+                fixed_point_16 q_int_val = fixed_point_16{w2[i][j]};
+                int16_t q_int_val_scaled = impl::to_rep(q_int_val);
+                std::bitset<16> bin_str(q_int_val_scaled);
+                w2_file_bin << bin_str << " // Original: " << fixed << setprecision(8) << w2[i][j]
+                            << ", Q_Int: " << q_int_val << endl;
+            }
+        }
+        w2_file_bin.close();
+        cout << "Weights w2 saved to weights_w2.bin" << endl;
+    } else {
+        cerr << "Unable to open file weights_w2.bin for writing." << endl;
     }
 
 }
