@@ -30,7 +30,8 @@ module MLP_mac #(
         end
         // Implicit case:
         // else if (start == 0 && valid == 0)
-        //     // acc <= acc; (which is redundant and typically not written)
+        //     // acc <= acc;           (which is redundant and typically not written)
+        //     // 
         //     // Inside an always @(posedge clk) block, if a 'reg' type variable
         //     // is not assigned a new value in any branch of the conditional logic
         //     // for a given clock edge, it retains its previous value.

@@ -4,3 +4,14 @@
 
     MLP_weight_mem.v
 1. è verosimile che la lettura non rispetti il clock?
+
+    MLP
+1. il filo 'rst' attualmente già presente, cosa fa?
+2. come avviene l'inizializzazione degli accumulatori?
+    R: non vengono inizializzati, semplicemente al primo ciclo, avrò start=1 e quel che accade è che acc <= il risultato della prima moltiplicazione, quindi OK.
+
+
+
+
+- si ma, poi effettivamente come leggo pesi e input?
+- se ora io volessi fare in modo che la MLP eseguisse più inferenze (in sequenza) come dovrei fare?
