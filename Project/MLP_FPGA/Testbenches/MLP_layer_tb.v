@@ -95,7 +95,6 @@ module tb_MLP_layer;
                 end
 
                 
-
                 val_i_16b = inputs[i];
                 val_w_16b = weights[n][i];
 
@@ -104,13 +103,8 @@ module tb_MLP_layer;
                 // So, product_temp (signed [IN_WIDTH+WGT_WIDTH-1:0]) is correctly sized.
                 product_temp = val_i_16b * val_w_16b;
 
-                // The $display for debug. You may want to use $signed() for display if %d is ambiguous.
-                // e.g., $display("BM: inputs[i]=%d (%h), weights[n][i]=%d (%h)", $signed(inputs[i]), inputs[i], $signed(weights[n][i]), weights[n][i]);
-
-
-                // Sign-extend product to MAC_WIDTH. This logic is fine assuming product_temp is correct.
+                // Sign-extend product to MAC_WIDTH.
                 // Given IN_WIDTH=16, WGT_WIDTH=16, MAC_WIDTH=32, IN_WIDTH+WGT_WIDTH == MAC_WIDTH.
-                // So, the 'else' branch is taken, and product_extended should become product_temp.
                 if ( (IN_WIDTH + WGT_WIDTH) > MAC_WIDTH ) begin
                      $error("TB: Product width (%0d) > MAC_WIDTH (%0d). Mismatch with MLP_mac assumption.", IN_WIDTH+WGT_WIDTH, MAC_WIDTH);
                      product_extended = product_temp[MAC_WIDTH-1:0];
