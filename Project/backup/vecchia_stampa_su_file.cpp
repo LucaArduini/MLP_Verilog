@@ -1,33 +1,31 @@
-#include <iostream>                 // Per std::cout, std::cerr, std::endl (output console, gestione errori file)
-#include <vector>                   // Per std::vector (usato in sinc2D_gen, MLP_MSE_cost)
-#include <array>                    // Per std::array (usato per matrici di pesi, attivazioni, dati)
-#include <cmath>                    // Per std::pow, std::sqrt, std::exp (commentato), std::sin
-#include <algorithm>                // Per std::shuffle, std::max, std::copy
-#include <random>                   // Per std::default_random_engine (shuffling)
-#include <ctime>                    // Per std::time (seeding per rand e random_engine)
-#include <limits>                   // Per std::numeric_limits (inizializzazione costo)
-#include <fstream>                  // Per std::ofstream (scrittura file pesi)
-#include <iomanip>                  // Per std::fixed, std::setprecision (formattazione output decimale)
-#include <numeric>                  // Per std::accumulate (calcolo costo)
 
-#include "cnl/include/cnl/all.h"    // Per cnl::scaled_integer e relative funzionalità (fixed_point_16)
-
+#include <iostream>
+#include <vector>
+#include <array>
+#include <cmath>
+#include <algorithm>
+#include <random>
+#include <ctime>
+#include <limits>
+#include <fstream>
+#include <iomanip>
+#include <numeric>
 using namespace std;
-namespace impl = cnl::_impl;
+
 
 const int num_train = 150*150;              // number of training pattern (put a square number here)
-const int num_test = 2250;
+const int num_test = 2500;
 
 
 // //////////////////////////////////////////// //
 //                 MLP parameters               //
 // //////////////////////////////////////////// //
-const int n_output = 1;             // Number of outputs
-const int n_features = 2;           // Number of input features
-const int n_hidden = 4;             // Number of neurons in the hidden layer
-const int epochs = 20;              // Number of epochs
-float eta = 1e-6;                   // Learning rate
-const int minibatches = 30;         // Number of mini-batches
+const int n_output = 1;                     // Number of outputs
+const int n_features = 2;                   // Number of input features
+const int n_hidden = 300;                   // Number of neurons in the hidden layer
+const int epochs = 500;                     // Number of epochs
+float eta = 1e-6;                           // Learning rate
+const int minibatches = 30;                 // Number of mini-batches
 
 vector<float> cost;
 array<array<float, n_features+1>, n_hidden> w1 = {};
@@ -35,16 +33,6 @@ array<array<float, n_hidden+1>, n_output> w2 = {};
 
 
 
-const int TOTAL_BITS = 16;
-const int FRACTIONAL_BITS = 8;
-const int INTEGER_BITS = TOTAL_BITS - FRACTIONAL_BITS;
-
-const double SCALE_FACTOR = std::pow(2.0, FRACTIONAL_BITS);
-const long long MIN_INT_VAL = -(1LL << (TOTAL_BITS - 1));        // e.g., -32768 for 16 bits
-const long long MAX_INT_VAL = (1LL << (TOTAL_BITS - 1)) - 1;     // e.g.,  32767 for 16 bits
-
-// Define the fixed-point type
-using fixed_point_16 = cnl::scaled_integer<int16_t, cnl::power<-FRACTIONAL_BITS>>;
 
 // Global declaration of variable used in the train step
 const int elem = (num_train + minibatches -1 )/minibatches;     // inputs used in each minibatch
@@ -72,9 +60,7 @@ array<array<float, n_hidden+1>, n_output> delta_W2_unscaled;
 
 
 
-// //////////////////////////////////////////// //
-//                 Utilities functions          //
-// //////////////////////////////////////////// //
+
 
 
 void A_mult_B(const float* A, const float* B, float* C,
@@ -126,99 +112,6 @@ void elem_mult_elem(const float* A, const float* B, float* C, int rig, int col) 
 }
 
 
-void save_weights_w1() {
-    ofstream outFile_dec("weights_w1_dec.txt");
-    ofstream outFile_bin("weights_w1_bin.txt");
-
-    if (!outFile_bin || !outFile_dec) {
-        cerr << "Error opening file for writing w1" << endl;
-        return;
-    }
-
-    const unsigned char* byte_ptr;
-
-    // scroll through the weight matrix
-    for (int i = 0; i < n_hidden; ++i) {
-        for (int j = 0; j < n_features + 1; ++j) {
-
-            // Write the decimal representation of the weight
-            outFile_dec << fixed << setprecision(8) << w1[i][j] << (j == n_features ? "" : " ");
-
-            // Write the binary representation of the weight
-            // Convert the float to fixed-point representation
-            fixed_point_16 fixed_val(w1[i][j]);
-            byte_ptr = static_cast<const unsigned char*>(static_cast<const void*>(&fixed_val));
-        
-            // Write the binary representation of the fixed-point number
-            for (int byte_idx = sizeof(fixed_val) - 1; byte_idx >= 0; --byte_idx) {
-                for (int bit_pos = CHAR_BIT - 1; bit_pos >= 0; --bit_pos) {
-                    outFile_bin << ((byte_ptr[byte_idx] >> bit_pos) & 1);
-                }
-            }
-
-            // Add a space between each weight
-            outFile_bin << (j == n_features ? "" : " ");
-
-        }
-        outFile_dec << endl;
-        outFile_bin << endl;
-    }
-
-    outFile_dec.close();
-    outFile_bin.close();
-
-    if (outFile_dec.fail() || outFile_bin.fail()) // Controlla se si sono verificati errori durante la scrittura
-        std::cerr << "Errore durante la scrittura su file di w1." << std::endl;
-    else
-        std::cout << "Weights w1 saved." << endl;
-}
-
-void save_weights_w2() {
-    ofstream outFile_dec("weights_w2_dec.txt");
-    ofstream outFile_bin("weights_w2_bin.txt");
-
-    if (!outFile_bin || !outFile_dec) {
-        cerr << "Error opening file for writing w2" << endl;
-        return;
-    }
-
-    const unsigned char* byte_ptr;
-
-    // scroll through the weight matrix
-    for (int i = 0; i < n_output; ++i) {
-        for (int j = 0; j < n_hidden + 1; ++j) {
-
-            // Write the decimal representation of the weight
-            outFile_dec << fixed << setprecision(8) << w2[i][j] << (j == n_features ? "" : " ");
-
-            // Write the binary representation of the weight
-            // Convert the float to fixed-point representation
-            fixed_point_16 fixed_val(w2[i][j]);
-            byte_ptr = static_cast<const unsigned char*>(static_cast<const void*>(&fixed_val));
-        
-            // Write the binary representation of the fixed-point number
-            for (int byte_idx = sizeof(fixed_val) - 1; byte_idx >= 0; --byte_idx) {
-                for (int bit_pos = CHAR_BIT - 1; bit_pos >= 0; --bit_pos) {
-                    outFile_bin << ((byte_ptr[byte_idx] >> bit_pos) & 1);
-                }
-            }
-
-            // Add a space between each weight
-            outFile_bin << (j == n_features ? "" : " ");
-
-        }
-        outFile_dec << endl;
-        outFile_bin << endl;
-    }
-
-    outFile_dec.close();
-    outFile_bin.close();
-
-    if (outFile_dec.fail() || outFile_bin.fail()) // Controlla se si sono verificati errori durante la scrittura
-        std::cerr << "Errore durante la scrittura su file di w2." << std::endl;
-    else
-        std::cout << "Weights w2 saved." << endl;
-}
 
 
 
@@ -575,12 +468,35 @@ void MLP_MSELIN_train(const array<array<float, n_features>, num_train> &x, const
 
     }
     printf("Training completed.\n");
+    // --- Save the trained weights to files ---
+    ofstream w1_file("weights_w1.txt");
+    if (w1_file.is_open()) {
+        for (int i = 0; i < n_hidden; ++i) {
+            for (int j = 0; j < n_features + 1; ++j) {
+                w1_file << fixed << setprecision(8) << w1[i][j] << (j == n_features ? "" : " ");
+            } // We use fixed and setprecision(8) to ensure a consistent number of decimal places are saved, which should be sufficient for our fixed-point conversion later.
+            w1_file << endl;
+        }
+        w1_file.close();
+        cout << "Weights w1 saved to weights_w1.txt" << endl;
+    } else {
+        cerr << "Unable to open file weights_w1.txt for writing." << endl;
+    }
 
-    // --- Save weights w1 ---
-    save_weights_w1();
+    ofstream w2_file("weights_w2.txt");
+    if (w2_file.is_open()) {
+        for (int i = 0; i < n_output; ++i) {
+            for (int j = 0; j < n_hidden + 1; ++j) {
+                w2_file << fixed << setprecision(8) << w2[i][j] << (j == n_hidden ? "" : " ");
+            }
+            w2_file << endl;
+        }
+        w2_file.close();
+        cout << "Weights w2 saved to weights_w2.txt" << endl;
+    } else {
+        cerr << "Unable to open file weights_w2.txt for writing." << endl;
+    }
 
-    // --- Save weights w2 ---
-    save_weights_w2();
 }
 
 

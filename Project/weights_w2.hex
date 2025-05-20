@@ -1,6 +1,0 @@
-// Q8.8 Hex Weights (Total Bits: 16, Fractional Bits: 8)
-00000000 // Original: -0.24815072, Q_Int: -.24609375
-00000000 // Original: -0.10692982, Q_Int: -.10546875
-00000000 // Original: 0.28074157, Q_Int: .27734375
-00000000 // Original: 0.10663515, Q_Int: .10546875
-00000000 // Original: -0.07417676, Q_Int: -.0703125
