@@ -15,8 +15,16 @@ module alt_mlp_tb;
 
     // Max positive value for a signed OUT_WIDTH number
     localparam signed [OUT_WIDTH-1:0] MAX_SIGNED_OUT_VAL = (1 << (OUT_WIDTH-1)) - 1;
-    // Min negative value (not used by ReLU, but good to know)
-    // localparam signed [OUT_WIDTH-1:0] MIN_SIGNED_OUT_VAL = -(1 << (OUT_WIDTH-1));
+
+    // DUT Register Addresses and Control Bits
+    localparam CTRL_REG_ADDR    = 2'd0;
+    localparam INPUT_FIFO_ADDR  = 2'd1;
+    localparam WEIGHT_FIFO_ADDR = 2'd2;
+    localparam OUTPUT_REG_ADDR  = 2'd3;
+
+    localparam CTRL_RUN_BIT_POS    = 0;
+    localparam CTRL_DONE_BIT_POS   = 1;
+    localparam CTRL_LAYER_SEL_BIT_POS = 3;
 
 
     // Testbench signals
@@ -63,67 +71,55 @@ module alt_mlp_tb;
 
     // Behavioral Model Storage
     reg signed [IN_WIDTH-1:0]   tb_inputs [0:N_INPUTS-1];
-    // Hidden weights: [neuron_idx][weight_idx], where weight_idx=0 is bias, 1..N_INPUTS are input weights
     reg signed [WGT_WIDTH-1:0]  tb_hidden_weights [0:N_HIDDEN-1][0:N_INPUTS];
-    // Output weights: [neuron_idx][weight_idx], where weight_idx=0 is bias, 1..N_HIDDEN are hidden layer output weights
     reg signed [WGT_WIDTH-1:0]  tb_output_weights [0:N_OUTPUT-1][0:N_HIDDEN];
-
-    // Expected output storage (since N_OUTPUT=1, a single variable is fine, but an array is more general)
     reg signed [OUT_WIDTH-1:0]  tb_expected_output_value;
 
 
-    // --- Behavioral Model Functions ---
-
-    // Function to apply ReLU and saturate/truncate to OUT_WIDTH
+    // --- Behavioral Model Functions --- (Keep these as they are)
     function automatic signed [OUT_WIDTH-1:0] apply_relu_saturate_func (input signed [MAC_WIDTH-1:0] sum_val);
+        // ... (function remains the same as before)
         if (sum_val < 0) begin
             return 0; // ReLU: max(0, x)
         end else if (sum_val > MAX_SIGNED_OUT_VAL) begin
             return MAX_SIGNED_OUT_VAL; // Saturate to max positive for signed OUT_WIDTH
         end else begin
-            // Value is positive and fits within OUT_WIDTH range (or will be truncated correctly by assignment)
             return sum_val; // Implicit truncation if MAC_WIDTH > OUT_WIDTH
         end
     endfunction : apply_relu_saturate_func
-
-    // Local storage for intermediate values
     
 
-    // SystemVerilog function for behavioral MLP calculation
-    // This version is specific to N_OUTPUT=1 for simplicity of return type.
-    // For a general N_OUTPUT, it would return an array/queue or take an output array argument.
     function automatic signed [OUT_WIDTH-1:0] calculate_mlp_behavioral (
         input signed [IN_WIDTH-1:0]   p_inputs[0:N_INPUTS-1],
         input signed [WGT_WIDTH-1:0]  p_hidden_weights[0:N_HIDDEN-1][0:N_INPUTS],
         input signed [WGT_WIDTH-1:0]  p_output_weights[0:N_OUTPUT-1][0:N_HIDDEN]
     );
+        // ... (function remains the same as before)
         logic signed [MAC_WIDTH-1:0]  l_hidden_sum[0:N_HIDDEN-1];
         logic signed [OUT_WIDTH-1:0]  l_hidden_activated[0:N_HIDDEN-1];
-        logic signed [MAC_WIDTH-1:0]  l_output_sum; // Since N_OUTPUT=1 for this function version
+        logic signed [MAC_WIDTH-1:0]  l_output_sum; 
         logic signed [OUT_WIDTH-1:0]  l_final_output;
         integer i, j;
 
         $display("Behavioral Func: Max signed %0d-bit output value for ReLU: %0d", OUT_WIDTH, MAX_SIGNED_OUT_VAL);
 
-        // 1. Hidden Layer Calculation
         $display("Behavioral Func: Calculating Hidden Layer Outputs (with ReLU)...");
         for (i = 0; i < N_HIDDEN; i = i + 1) begin
-            l_hidden_sum[i] = p_hidden_weights[i][0]; // Start with bias
+            l_hidden_sum[i] = p_hidden_weights[i][0]; 
             for (j = 0; j < N_INPUTS; j = j + 1) begin
                 l_hidden_sum[i] = l_hidden_sum[i] + p_inputs[j] * p_hidden_weights[i][j+1];
             end
             l_hidden_activated[i] = apply_relu_saturate_func(l_hidden_sum[i]);
-            $display("  Func Hidden Neuron %0d: Sum = %0d, ReLU Output = %0d", i, l_hidden_sum[i], l_hidden_activated[i]);
+            $display("  Func Hidden Neuron %0d: Bias=%0d (%h), Sum = %0d, ReLU Output = %0d", i, p_hidden_weights[i][0], p_hidden_weights[i][0], l_hidden_sum[i], l_hidden_activated[i]);
         end
 
-        // 2. Output Layer Calculation
         $display("Behavioral Func: Calculating Output Layer Outputs (with ReLU)...");
-        l_output_sum = p_output_weights[0][0]; // Bias for the first (and only) output neuron
+        l_output_sum = p_output_weights[0][0]; 
         for (j = 0; j < N_HIDDEN; j = j + 1) begin
             l_output_sum = l_output_sum + l_hidden_activated[j] * p_output_weights[0][j+1];
         end
         l_final_output = apply_relu_saturate_func(l_output_sum);
-        $display("  Func Output Neuron 0: Sum = %0d, Expected ReLU Output = %0d", l_output_sum, l_final_output);
+        $display("  Func Output Neuron 0: Bias=%0d (%h), Sum = %0d, Expected ReLU Output = %0d", p_output_weights[0][0],p_output_weights[0][0],l_output_sum, l_final_output);
 
         return l_final_output;
     endfunction : calculate_mlp_behavioral
@@ -132,6 +128,12 @@ module alt_mlp_tb;
     // Initial stimulus
     initial begin
         logic signed [OUT_WIDTH-1:0] dut_output_value;
+        logic [31:0] current_ctrl_reg_val; // For polling DONE bit
+
+        // Temporary 1D arrays for $readmemb
+        logic [WGT_WIDTH-1:0] temp_hidden_weights_1d [0 : N_HIDDEN * (N_INPUTS + 1) - 1];
+        logic [WGT_WIDTH-1:0] temp_output_weights_1d [0 : N_OUTPUT * (N_HIDDEN + 1) - 1];
+        integer k; // Index for 1D array
 
         $dumpfile("mlp.vcd");
         $dumpvars(0, alt_mlp_tb);
@@ -139,83 +141,111 @@ module alt_mlp_tb;
         clk = 0;
         rst = 1;
         write_en = 0;
-        addr = 0;
+        addr = CTRL_REG_ADDR; // Initialize addr
         writedata = 0;
 
         repeat(2) @(posedge clk);
         rst = 0;
+        @(posedge clk); // Allow a cycle for reset to propagate fully
 
-        // --- Populate Behavioral Model Inputs & Weights ---
-        // Inputs: x = [7, -3]
+        // --- Populate Behavioral Model Inputs ---
+        // Inputs: x = [7, -3] (still hardcoded for this example)
         tb_inputs[0] = 7;
         tb_inputs[1] = -3;
 
-        // Hidden Layer Weights (Format: [bias, w_for_x0, w_for_x1])
-        tb_hidden_weights[0][0] = 1;  tb_hidden_weights[0][1] = 2;  tb_hidden_weights[0][2] = 3;  // N0
-        tb_hidden_weights[1][0] = 0;  tb_hidden_weights[1][1] = -1; tb_hidden_weights[1][2] = 2;  // N1
-        tb_hidden_weights[2][0] = -2; tb_hidden_weights[2][1] = 4;  tb_hidden_weights[2][2] = 1;  // N2
-        tb_hidden_weights[3][0] = 1;  tb_hidden_weights[3][1] = 1;  tb_hidden_weights[3][2] = 1;  // N3
+        // --- Read Hidden Layer Weights from File using $readmemb ---
+        $display("[%0t] Main TB: Reading hidden layer weights from weights_w1.txt...", $time);
+        $readmemb("weights_w1.txt", temp_hidden_weights_1d);
+        
+        // Copy from 1D temp array to 2D tb_hidden_weights
+        k = 0;
+        for (int h_idx = 0; h_idx < N_HIDDEN; h_idx = h_idx + 1) begin
+            tb_hidden_weights[h_idx][0] = temp_hidden_weights_1d[k++]; // Bias
+            for (int i_idx = 0; i_idx < N_INPUTS; i_idx = i_idx + 1) begin
+                tb_hidden_weights[h_idx][i_idx+1] = temp_hidden_weights_1d[k++];
+            end
+        end
+        $display("[%0t] Main TB: Finished reading and mapping hidden layer weights.", $time);
+        // For verification, you can display some loaded weights
+        // for (int h_idx = 0; h_idx < N_HIDDEN; h_idx = h_idx + 1) begin
+        //     $display("TB: Hidden Neuron %0d Weights (Hex): Bias=%h, W_in0=%h, W_in1=%h", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);
+        //     $display("TB: Hidden Neuron %0d Weights (Dec): Bias=%d, W_in0=%d, W_in1=%d", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);
+        // end
 
-        // Output Layer Weights (Format: [bias, w_for_h0, w_for_h1, w_for_h2, w_for_h3])
-        // N_OUTPUT = 1, so tb_output_weights[0] is used.
-        tb_output_weights[0][0] = 1; // Bias for output neuron 0
-        tb_output_weights[0][1] = 1; // Weight for h0
-        tb_output_weights[0][2] = 1; // Weight for h1
-        tb_output_weights[0][3] = 1; // Weight for h2
-        tb_output_weights[0][4] = 1; // Weight for h3
+
+        // --- Read Output Layer Weights from File using $readmemb ---
+        $display("[%0t] Main TB: Reading output layer weights from weights_w2.txt...", $time);
+        $readmemb("weights_w2.txt", temp_output_weights_1d);
+
+        // Copy from 1D temp array to 2D tb_output_weights
+        k = 0;
+        for (int o_idx = 0; o_idx < N_OUTPUT; o_idx = o_idx + 1) begin // N_OUTPUT is 1
+            tb_output_weights[o_idx][0] = temp_output_weights_1d[k++]; // Bias
+            for (int h_w_idx = 0; h_w_idx < N_HIDDEN; h_w_idx = h_w_idx + 1) begin
+                tb_output_weights[o_idx][h_w_idx+1] = temp_output_weights_1d[k++];
+            end
+        end
+        $display("[%0t] Main TB: Finished reading and mapping output layer weights.", $time);
+        // For verification:
+        // $display("TB: Output Neuron 0 Weights (Hex): Bias=%h, W_h0=%h, W_h1=%h, W_h2=%h, W_h3=%h", tb_output_weights[0][0], tb_output_weights[0][1], tb_output_weights[0][2], tb_output_weights[0][3], tb_output_weights[0][4]);
+        // $display("TB: Output Neuron 0 Weights (Dec): Bias=%d, W_h0=%d, W_h1=%d, W_h2=%d, W_h3=%d", tb_output_weights[0][0], tb_output_weights[0][1], tb_output_weights[0][2], tb_output_weights[0][3], tb_output_weights[0][4]);
+
 
         // --- Calculate Expected Output using Behavioral Function ---
         tb_expected_output_value = calculate_mlp_behavioral(tb_inputs, tb_hidden_weights, tb_output_weights);
-        $display("Main TB: Expected output from behavioral function = %0d", tb_expected_output_value);
+        $display("[%0t] Main TB: Expected output from behavioral function = %0d", $time, tb_expected_output_value);
 
         // --- DUT Configuration and Execution ---
         // === Load input vector: x = [7, -3] ===
-        write_reg(2'd1, 32'sd7);
-        write_reg(2'd1, -32'sd3);
+        write_reg(INPUT_FIFO_ADDR, tb_inputs[0]); // Use tb_inputs values
+        write_reg(INPUT_FIFO_ADDR, tb_inputs[1]);
 
-        // === Load hidden layer weights ===
-        // Neuron 0
-        write_reg(2'd2, 32'sd1); write_reg(2'd2, 32'sd2); write_reg(2'd2, 32'sd3);
-        // Neuron 1
-        write_reg(2'd2, 32'sd0); write_reg(2'd2, -32'sd1); write_reg(2'd2, 32'sd2);
-        // Neuron 2
-        write_reg(2'd2, -32'sd2); write_reg(2'd2, 32'sd4); write_reg(2'd2, 32'sd1);
-        // Neuron 3
-        write_reg(2'd2, 32'sd1); write_reg(2'd2, 32'sd1); write_reg(2'd2, 32'sd1);
+        // === Load hidden layer weights into DUT ===
+        $display("[%0t] Main TB: Loading hidden layer weights into DUT...", $time);
+        for (int h_idx = 0; h_idx < N_HIDDEN; h_idx = h_idx + 1) begin
+            write_reg(WEIGHT_FIFO_ADDR, tb_hidden_weights[h_idx][0]); // Bias
+            for (int i_idx = 0; i_idx < N_INPUTS; i_idx = i_idx + 1) begin
+                write_reg(WEIGHT_FIFO_ADDR, tb_hidden_weights[h_idx][i_idx+1]);
+            end
+        end
 
-        // === Load output layer weights ===
-        write_reg(2'd0, 32'sb1000); // change layer
-        write_reg(2'd2, 32'sd1); // bias
-        write_reg(2'd2, 32'sd1); // w_h0
-        write_reg(2'd2, 32'sd1); // w_h1
-        write_reg(2'd2, 32'sd1); // w_h2
-        write_reg(2'd2, 32'sd1); // w_h3
+        // === Load output layer weights into DUT ===
+        $display("[%0t] Main TB: Loading output layer weights into DUT...", $time);
+        write_reg(CTRL_REG_ADDR, (1 << CTRL_LAYER_SEL_BIT_POS)); // Select output layer for weights
+        for (int o_idx = 0; o_idx < N_OUTPUT; o_idx = o_idx + 1) begin 
+            write_reg(WEIGHT_FIFO_ADDR, tb_output_weights[o_idx][0]); // Bias
+            for (int h_w_idx = 0; h_w_idx < N_HIDDEN; h_w_idx = h_w_idx + 1) begin
+                write_reg(WEIGHT_FIFO_ADDR, tb_output_weights[o_idx][h_w_idx+1]);
+            end
+        end
 
         // === Start MLP computation ===
-        write_reg(2'd0, 32'b00000001);  // Set RUN bit
+        write_reg(CTRL_REG_ADDR, (1 << CTRL_RUN_BIT_POS));
 
-        // Wait for DONE (bit 1 in CTRL)
-        @(posedge clk);
-        wait(dut.ctrl[1] == 1);
-        $display("MLP computation DONE.");
-        write_reg(2'd3, 32'd0);
-        // === Read output ===
-        @(posedge clk); // Allow one cycle for readdata to update
-
+        // Wait for DONE 
+        $display("[%0t] Main TB: Waiting for MLP computation DONE...", $time);
+        @(posedge clk); 
+        current_ctrl_reg_val = readdata;
+        while (current_ctrl_reg_val[CTRL_DONE_BIT_POS] == 0) begin
+            @(posedge clk);
+            current_ctrl_reg_val = readdata;
+        end
+        $display("[%0t] Main TB: MLP computation DONE. CTRL_REG = 0x%0h", $time, current_ctrl_reg_val);
         
-        // Assuming DUT sign-extends its OUT_WIDTH result into the 32-bit readdata.
-        // Since ReLU output is >=0, the upper bits of readdata should be 0.
+        // === Read output ===
+        write_reg(OUTPUT_REG_ADDR, 32'd0); 
+        @(posedge clk); 
         dut_output_value = readdata;
 
-        $display("MLP output from DUT: %0d (raw readdata: 0x%0h)", dut_output_value, readdata);
-        $display("MLP expected output (behavioral model): %0d", tb_expected_output_value);
+        $display("[%0t] Main TB: MLP output from DUT: %0d (raw readdata: 0x%0h)", $time, dut_output_value, readdata);
+        $display("[%0t] Main TB: MLP expected output (behavioral model): %0d", $time, tb_expected_output_value);
 
         // === Compare and Report ===
         if (dut_output_value == tb_expected_output_value) begin
             $display(">>> TEST PASSED: DUT output matches behavioral model.");
         end else begin
-            $error(">>> TEST FAILED: DUT output %0d does not match expected %0d",
-                   dut_output_value, tb_expected_output_value);
+            $error(">>> TEST FAILED: DUT output %0d does not match expected %0d. Raw DUT readdata: 0x%0h",
+                   dut_output_value, tb_expected_output_value, readdata);
         end
 
         $finish;
