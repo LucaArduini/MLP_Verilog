@@ -1,17 +1,23 @@
     MLP_mac.v
 1. chi è che mette start a zero (nel ciclo successivo a quello in cui è stato messo a 1)?
 2. in questo file manca il discorso del RESET, va aggiunto in questo file oppure viene gestito in un altro modo? magari viene dato 0 in ingresso ad 'a' e 'b' quando si vuole resettare il mac.
+3. non dovremmo accumulare su 64 bit anziché su 32?
 
     MLP_weight_mem.v
 1. è verosimile che la lettura non rispetti il clock?
+2. abbiamo il filo 'rst' ma non lo usiamo...
 
     MLP
 1. il filo 'rst' attualmente già presente, cosa fa?
-2. come avviene l'inizializzazione degli accumulatori?
-    R: non vengono inizializzati, semplicemente al primo ciclo, avrò start=1 e quel che accade è che acc <= il risultato della prima moltiplicazione, quindi OK.
+-. come avviene l'inizializzazione degli accumulatori?
+    R: non c'è bisogno di inizializzarli (a zero per esempio), semplicemente al primo ciclo avrò start=1 e quel che accade è che acc <= il risultato della prima moltiplicazione, quindi OK.
 
 
 
 
-- si ma, poi effettivamente come leggo pesi e input?
-- se ora io volessi fare in modo che la MLP eseguisse più inferenze (in sequenza) come dovrei fare?
+1. si ma, poi effettivamente come leggo pesi e input?
+2. se ora io volessi fare in modo che la MLP eseguisse più inferenze (in sequenza) come dovrei fare?
+
+
+
+- ACC_WIDTH in MLP_mac.v
