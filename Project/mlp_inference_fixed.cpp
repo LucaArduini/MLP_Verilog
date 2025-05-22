@@ -1,17 +1,15 @@
 #include <iostream>
-#include <vector>
 #include <array>
-#include <cmath> // Still useful for std::exp if cnl::exp isn't found or for comparison
+#include <cmath>
 #include <fstream>
-#include <sstream>
 
-#include "cnl/include/cnl/all.h" // For cnl::scaled_integer
+#include "cnl/include/cnl/all.h"    // For cnl::scaled_integer
 
 namespace impl = cnl::_impl;
 // Using namespaces for convenience in this .cpp file
 using namespace std;
 using namespace cnl;
-const int fractional_bits = 16; // Number of fractional bits for fixed-point representation   
+const int fractional_bits = 16;     // Number of fractional bits for fixed-point representation   
 
 // Define the fixed-point type
 using fixed_point_32 = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits>>;
@@ -19,9 +17,9 @@ using fixed_point_32 = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits>
 // //////////////////////////////////////////// //
 //             MLP parameters for inference     //
 // //////////////////////////////////////////// //
-const int n_output = 1;         // Number of outputs
-const int n_features = 2;         // Number of input features
-const int n_hidden = 300;         // Number of neurons in the hidden layer
+const int n_output = 1;             // Number of outputs
+const int n_features = 2;           // Number of input features
+const int n_hidden = 300;           // Number of neurons in the hidden layer
 
 // Weights are assumed to be loaded from a file
 array<array<fixed_point_32, n_features + 1>, n_hidden> w1;

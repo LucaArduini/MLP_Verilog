@@ -1,19 +1,16 @@
 #include <iostream>
-#include <vector>
 #include <array>
 #include <cmath>
 #include <fstream>
-#include <sstream>
 
 using namespace std;
 
-
-// //////////////////////////////////////////// //using float = cnl::scaled_integer<int32_t, cnl::power<-16>>; // 8 bits total, 4 fractional bits
+// //////////////////////////////////////////// //
 //             MLP parameters for inference     //
 // //////////////////////////////////////////// //
-const int n_output = 1;         // Number of outputs
-const int n_features = 2;         // Number of input features
-const int n_hidden = 300;         // Number of neurons in the hidden layer
+const int n_output = 1;             // Number of outputs
+const int n_features = 2;           // Number of input features
+const int n_hidden = 300;           // Number of neurons in the hidden layer
 
 // Weights are assumed to be loaded from a file
 array<array<float, n_features + 1>, n_hidden> w1;
