@@ -1,12 +1,12 @@
 `timescale 1ns / 1ps
-// 1ns: unità di tempo (Time Unit) ? tutte le durate (es. #10) saranno interpretate come 10 nanosecondi
+// 1ns: unitï¿½ di tempo (Time Unit) ? tutte le durate (es. #10) saranno interpretate come 10 nanosecondi
 // 1ps: precisione di tempo (Time Precision) ? la simulazione considera il tempo con una risoluzione di 1 picosecondo
 
 module mac_tb;
 
-    parameter A_WIDTH = 8;
-    parameter B_WIDTH = 8;
-    parameter ACC_WIDTH = 32;
+    parameter A_WIDTH = 16;
+    parameter B_WIDTH = 16;
+    parameter ACC_WIDTH = 64;
     parameter PROD_WIDTH = A_WIDTH + B_WIDTH;
 
     reg clk;
@@ -90,7 +90,8 @@ module mac_tb;
         if (result !== expected_acc) begin
             $display("Error after start @ %0t: Expected %d, Got %d", $time, expected_acc, result);
             errors = errors + 1;
-        end else begin
+        end
+        else begin
             $display("Pass after start @ %0t: Result = %d", $time, result);
         end
 
@@ -103,7 +104,7 @@ module mac_tb;
             @(negedge clk);
             a = a_vec[i];
             b = b_vec[i];
-            valid = 1; // start è già 0
+            valid = 1; // start Ã¨ giÃ  0
 
             // Calcola il prodotto corrente e aggiorna l'accumulatore atteso
             current_product = a_vec[i] * b_vec[i];

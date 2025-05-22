@@ -1,12 +1,15 @@
     MLP_mac.v
-1. chi è che mette start a zero (nel ciclo successivo a quello in cui è stato messo a 1)?
-2. in questo file manca il discorso del RESET, va aggiunto in questo file oppure viene gestito in un altro modo? magari viene dato 0 in ingresso ad 'a' e 'b' quando si vuole resettare il mac.
-3. non dovremmo accumulare su 64 bit anziché su 32?
+-. chi è che mette start a zero (nel ciclo successivo a quello in cui è stato messo a 1)?
+    R: è in MLP.v che start viene modificato
+1. in questo file manca il discorso del RESET, va aggiunto oppure qui ci basta lo 'start'?
 
     MLP_weight_mem.v
 1. è verosimile che la lettura non rispetti il clock?
 2. abbiamo il filo 'rst' ma non lo usiamo...
 
+    MLP_layer.v
+1. stiamo troncando da 64 bit a 16, non è un problema?
+    
     MLP
 1. il filo 'rst' attualmente già presente, cosa fa?
 -. come avviene l'inizializzazione degli accumulatori?
@@ -17,7 +20,13 @@
 
 1. si ma, poi effettivamente come leggo pesi e input?
 2. se ora io volessi fare in modo che la MLP eseguisse più inferenze (in sequenza) come dovrei fare?
+3. la width del MAC_accumulator è giusta 64?
 
 
 
-- ACC_WIDTH in MLP_mac.v
+X. ma quanti MAC ci riusciamo a mettere nella FPGA? Che nel caso alziamo il num di perceptron nell'hidden layer...
+F. finché usiamo i numeri hardcoded nelle tb funziona ed ok, ma se usiamo i nostri numeri scritti nei txt siamo sicuri che le operazioni funzionano bene?
+
+    DA FARE:
+- aggiusta dimensioni wire nel mlp.v
+- capisci come Coco voleva fare la moltiplicazione

@@ -1,8 +1,8 @@
 module MLP_weight_mem #(
-    parameter ADDR_WIDTH = 6,           // log2(number of perceptrons)
+    parameter ADDR_WIDTH = $clog2(2+1), // log2(number of perceptrons)
     parameter DATA_WIDTH = 16           // Width of each weight (e.g., fixed-point)
 )(
-    input 					clk,        // Clocòk signal
+    input 					clk,        // Clock signal
 	input 					rst,        // Reset signal
     input [ADDR_WIDTH-1:0] 	addr,       // Address input for read/write operations
 	input 					wr_en,      // Write enable signal

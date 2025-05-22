@@ -6,14 +6,18 @@ module tb_MLP_weight_mem;
     localparam ADDR_WIDTH = 6;
     localparam DATA_WIDTH = 32;
     localparam CLK_PERIOD = 10; // Clock period in ns
+    localparam MAX_ADDR = (1 << ADDR_WIDTH) - 1;
+
+    // NB: ADDR_WIDTH e DATA_WIDTH qui hanno valori utili solo ai fini di test.
+    // Nel nostro caso studio, i valori sono $clog2(2+1) e 16 rispettivamente.
 
     // Testbench signals
-    reg                        clk;
-    reg                        rst;
-    reg [ADDR_WIDTH-1:0]       addr;
-    reg                        wr_en;
-    reg [DATA_WIDTH-1:0]       wr_data;
-    wire [DATA_WIDTH-1:0]      rd_data;
+    reg                     clk;
+    reg                     rst;
+    reg  [ADDR_WIDTH-1:0]   addr;
+    reg                     wr_en;
+    reg  [DATA_WIDTH-1:0]   wr_data;
+    wire [DATA_WIDTH-1:0]   rd_data;
 
     // Instantiate the Device Under Test (DUT)
     MLP_weight_mem #(
@@ -95,7 +99,6 @@ module tb_MLP_weight_mem;
         end
 
         // --- Test Case 4: Write to max address and read back ---
-        localparam MAX_ADDR = (1 << ADDR_WIDTH) - 1;
         $display("[%0t] Test Case 4: Write to max address (%0d) and read back.", $time, MAX_ADDR);
         addr <= MAX_ADDR;
         wr_data <= 32'hC0DEC0DE;
@@ -131,22 +134,30 @@ module tb_MLP_weight_mem;
 
         // --- Test Case 6: Read from an unwritten address (optional - depends on RAM init) ---
         // BRAMs typically initialize to X or 0 in simulation if not explicitly initialized.
-        // Your DUT does not initialize memory on reset.
-        $display("[%0t] Test Case 6: Read from unwritten address (e.g., 10).", $time);
+        // Your DUT (MLP_weight_mem) does not explicitly initialize 'mem' on reset.
+        // Therefore, in a typical Verilog simulation, uninitialized 'reg' elements
+        // will default to 'X'. Some simulators might default to '0'.
+        $display("[%0t] Test Case 6: Read from unwritten address (10).", $time);
         addr <= 10; // Assuming address 10 has not been written to
         wr_en <= 0;
         @(posedge clk);
 
-        // In simulation, uninitialized regs often show as 'X'.
-        // For BRAMs, the actual hardware might power up to all zeros or a random state.
-        // The model will show 'X' if `mem[10]` was never assigned.
+        // Check for 'X' (all bits undefined)
         if (rd_data === {DATA_WIDTH{1'bx}}) begin
-            $display("[%0t] INFO: Read from unwritten addr 10 is 'X' as expected for uninitialized reg. Data: %h", $time, rd_data);
-        end else if (rd_data === {DATA_WIDTH{1'b0}}) begin
-            $display("[%0t] INFO: Read from unwritten addr 10 is '0'. Data: %h", $time, rd_data);
-        else {
-             $display("[%0t] INFO: Read from unwritten addr 10. Data: %h (value may vary based on simulator default for uninitialized regs)", $time, rd_data);
-        }
+            $display("[%0t] INFO (TC6): Read from unwritten addr 10 is all 'X's. This is the expected behavior for uninitialized 'reg' in simulation. Data: %h", $time, rd_data);
+        end
+        // Check for '0' (all bits zero)
+        else if (rd_data === {DATA_WIDTH{1'b0}}) begin
+            $display("[%0t] INFO (TC6): Read from unwritten addr 10 is all '0's. This might be a simulator default for uninitialized BRAM-like structures or if the DUT implicitly initializes to zero. Data: %h", $time, rd_data);
+        end
+        // Check if any bit is 'X' or 'Z' (partially uninitialized)
+        else if ($isunknown(rd_data)) begin
+            $warning("[%0t] WARNING (TC6): Read from unwritten addr 10 contains 'X' or 'Z' bits, but is not all 'X's. This is unusual for a simple uninitialized memory read. Data: %h", $time, rd_data);
+        end
+        // Otherwise, it's some other defined value
+        else begin
+             $warning("[%0t] WARNING (TC6): Read from unwritten addr 10 yielded a defined, non-zero value. This is unexpected for an uninitialized memory location. Data: %h", $time, rd_data);
+        end
 
         $display("[%0t] All tests completed.", $time);
         $finish;
