@@ -7,8 +7,8 @@
 module tb_MLP_layer;
 
     // Parameters for the MLP_layer (matching DUT defaults or configurable)
-    localparam N_INPUTS     = 4;    // DUT default: 4
-    localparam N_NEURONS    = 8;    // DUT default: 8
+    localparam N_INPUTS     = 2;    // DUT default: 4
+    localparam N_NEURONS    = 4;    // DUT default: 8
     localparam IN_WIDTH     = 16;   // DUT default: 16
     localparam WGT_WIDTH    = 16;   // DUT default: 16
     localparam MAC_WIDTH    = 32;   // DUT default: 32 (Width of MAC accumulator)
@@ -88,7 +88,7 @@ module tb_MLP_layer;
                 logic signed [IN_WIDTH+WGT_WIDTH-1:0] product_temp;
                 logic signed [MAC_WIDTH-1:0] product_extended;
 
-                // Critical: Check the actual weight and input values being used by the function
+                // Check the actual weight and input values being used by the function
                 if (n < 2) begin // Only print for first few neurons to avoid excessive output initially
                     $display("BM: n=%0d, i=%0d, input_val_fn_arg[%0d]=%d (0x%h), weight_fn_arg[%0d][%0d]=%d (0x%h)",
                             n, i, i, inputs[i], inputs[i], n, i, weights[n][i], weights[n][i]);

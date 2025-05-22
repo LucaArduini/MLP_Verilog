@@ -1,8 +1,8 @@
 
 module mlp #(
-    parameter N_INPUTS     = 4,
-    parameter N_HIDDEN     = 8,
-    parameter N_OUTPUT     = 4,
+    parameter N_INPUTS     = 2,
+    parameter N_HIDDEN     = 4,
+    parameter N_OUTPUT     = 1,
     parameter IN_WIDTH     = 16,
     parameter WGT_WIDTH    = 16,
     parameter MAC_WIDTH    = 32,
