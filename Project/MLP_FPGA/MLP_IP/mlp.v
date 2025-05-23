@@ -319,7 +319,7 @@ module mlp #(
     // === MLP Layers ===
 
     // Layer 0: input -> hidden
-    MLP_layer #(
+    MLP_layer_hidden #(
         .N_INPUTS(N_INPUTS_HIDDEN),
         .N_NEURONS(N_HIDDEN),
         .IN_WIDTH(IN_WIDTH),
@@ -343,7 +343,7 @@ module mlp #(
 	assign output_layer_inputs_flat = {hidden_layer_outputs_flat,{(OUT_WIDTH-1){1'b0}},1'b1};
 
     // Layer 1: hidden -> output
-    MLP_layer #(
+    MLP_layer_output #(
         .N_INPUTS(N_INPUTS_OUTPUT),
         .N_NEURONS(N_OUTPUT),
         .IN_WIDTH(OUT_WIDTH),
@@ -360,7 +360,7 @@ module mlp #(
         .input_index(hidden_index),
         .valid(valid_layer_1),
         .start(start_layer_1),
-        .relu_en(relu_output),
+        .output_en(relu_output),
         .outputs_flat(output_layer_outputs_flat)
     );
 
