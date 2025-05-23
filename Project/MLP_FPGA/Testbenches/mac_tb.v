@@ -4,9 +4,9 @@
 
 module mac_tb;
 
-    parameter A_WIDTH = 8;
-    parameter B_WIDTH = 8;
-    parameter ACC_WIDTH = 32;
+    parameter A_WIDTH = 16;
+    parameter B_WIDTH = 16;
+    parameter ACC_WIDTH = 64;
     parameter PROD_WIDTH = A_WIDTH + B_WIDTH;
 
     reg clk;
@@ -90,7 +90,8 @@ module mac_tb;
         if (result !== expected_acc) begin
             $display("Error after start @ %0t: Expected %d, Got %d", $time, expected_acc, result);
             errors = errors + 1;
-        end else begin
+        end
+        else begin
             $display("Pass after start @ %0t: Result = %d", $time, result);
         end
 

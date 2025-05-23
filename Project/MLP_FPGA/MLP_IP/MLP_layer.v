@@ -1,9 +1,9 @@
 module MLP_layer #(
-    parameter N_INPUTS     = 2,                     // Number of inputs to the layer (and thus, weights per neuron)
+    parameter N_INPUTS     = 2+1,                   // Number of inputs to the layer (and thus, weights per neuron)
     parameter N_NEURONS    = 4,                     // Number of neurons in this layer
     parameter IN_WIDTH     = 16,                    // Bit-width of each input value
     parameter WGT_WIDTH    = 16,                    // Bit-width of each weight value
-    parameter MAC_WIDTH    = 32,                    // Bit-width of the accumulator in the MAC units
+    parameter MAC_WIDTH    = 64,                    // Bit-width of the accumulator in the MAC units
     parameter OUT_WIDTH    = 16                     // Bit-width of each neuron's output (after ReLU/clipping)
 )(
     input   clk,                                    // Clock signal
@@ -81,7 +81,7 @@ module MLP_layer #(
 
     // === ReLU + Clipping stage ===
     // This block registers the MAC outputs after applying ReLU and clipping, when 'relu_en' is asserted.
-	always @(posedge clk) begin
+	always @(posedge clk) begin : relu_clip_logic
 	    integer n; // Loop variable for neurons
 		if (relu_en) begin
 			for (n = 0; n < N_NEURONS; n = n + 1) begin
@@ -99,6 +99,5 @@ module MLP_layer #(
 		end
         // If relu_en is not asserted, outputs_flat retains its previous value.
 	end
-
 
 endmodule

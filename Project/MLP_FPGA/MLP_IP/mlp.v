@@ -5,7 +5,7 @@ module mlp #(
     parameter N_OUTPUT     = 1,
     parameter IN_WIDTH     = 16,
     parameter WGT_WIDTH    = 16,
-    parameter MAC_WIDTH    = 32,
+    parameter MAC_WIDTH    = 64,
     parameter OUT_WIDTH    = 16
 )(
     input  wire clk,

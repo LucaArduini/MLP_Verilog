@@ -7,12 +7,12 @@
 module tb_MLP_layer;
 
     // Parameters for the MLP_layer (matching DUT defaults or configurable)
-    localparam N_INPUTS     = 2;    // DUT default: 4
-    localparam N_NEURONS    = 4;    // DUT default: 8
-    localparam IN_WIDTH     = 16;   // DUT default: 16
-    localparam WGT_WIDTH    = 16;   // DUT default: 16
-    localparam MAC_WIDTH    = 32;   // DUT default: 32 (Width of MAC accumulator)
-    localparam OUT_WIDTH    = 16;   // DUT default: 16 (Width of each output element)
+    localparam N_INPUTS     = 2+1;
+    localparam N_NEURONS    = 4;
+    localparam IN_WIDTH     = 16;
+    localparam WGT_WIDTH    = 16;
+    localparam MAC_WIDTH    = 64;       // Width of MAC accumulator
+    localparam OUT_WIDTH    = 16;       // Width of each output element
 
     localparam CLK_PERIOD = 10; // ns
 
