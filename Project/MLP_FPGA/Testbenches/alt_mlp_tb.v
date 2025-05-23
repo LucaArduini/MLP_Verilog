@@ -76,9 +76,8 @@ module alt_mlp_tb;
     reg signed [OUT_WIDTH-1:0]  tb_expected_output_value;
 
 
-    // --- Behavioral Model Functions --- (Keep these as they are)
+    // --- Behavioral Model Functions ---
     function automatic signed [OUT_WIDTH-1:0] apply_relu_saturate_func (input signed [MAC_WIDTH-1:0] sum_val);
-        // ... (function remains the same as before)
         if (sum_val < 0) begin
             return 0; // ReLU: max(0, x)
         end else if (sum_val > MAX_SIGNED_OUT_VAL) begin
@@ -94,7 +93,6 @@ module alt_mlp_tb;
         input signed [WGT_WIDTH-1:0]  p_hidden_weights[0:N_HIDDEN-1][0:N_INPUTS],
         input signed [WGT_WIDTH-1:0]  p_output_weights[0:N_OUTPUT-1][0:N_HIDDEN]
     );
-        // ... (function remains the same as before)
         logic signed [MAC_WIDTH-1:0]  l_hidden_sum[0:N_HIDDEN-1];
         logic signed [OUT_WIDTH-1:0]  l_hidden_activated[0:N_HIDDEN-1];
         logic signed [MAC_WIDTH-1:0]  l_output_sum; 
@@ -149,7 +147,7 @@ module alt_mlp_tb;
         @(posedge clk); // Allow a cycle for reset to propagate fully
 
         // --- Populate Behavioral Model Inputs ---
-        // Inputs: x = [7, -3] (still hardcoded for this example)
+        // Inputs: x = [7, -3] (hardcoded for this tb)
         tb_inputs[0] = 7;
         tb_inputs[1] = -3;
 
@@ -166,7 +164,7 @@ module alt_mlp_tb;
             end
         end
         $display("[%0t] Main TB: Finished reading and mapping hidden layer weights.", $time);
-        // For verification, you can display some loaded weights
+        // For verification, display some loaded weights
         // for (int h_idx = 0; h_idx < N_HIDDEN; h_idx = h_idx + 1) begin
         //     $display("TB: Hidden Neuron %0d Weights (Hex): Bias=%h, W_in0=%h, W_in1=%h", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);
         //     $display("TB: Hidden Neuron %0d Weights (Dec): Bias=%d, W_in0=%d, W_in1=%d", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);

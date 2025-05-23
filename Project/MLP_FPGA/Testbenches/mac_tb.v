@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-// 1ns: unità di tempo (Time Unit) ? tutte le durate (es. #10) saranno interpretate come 10 nanosecondi
+// 1ns: unitï¿½ di tempo (Time Unit) ? tutte le durate (es. #10) saranno interpretate come 10 nanosecondi
 // 1ps: precisione di tempo (Time Precision) ? la simulazione considera il tempo con una risoluzione di 1 picosecondo
 
 module mac_tb;
@@ -103,7 +103,7 @@ module mac_tb;
             @(negedge clk);
             a = a_vec[i];
             b = b_vec[i];
-            valid = 1; // start è già 0
+            valid = 1; // start Ã¨ giÃ  0
 
             // Calcola il prodotto corrente e aggiorna l'accumulatore atteso
             current_product = a_vec[i] * b_vec[i];
