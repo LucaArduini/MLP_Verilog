@@ -100,11 +100,10 @@ module tb_MLP_layer;
 
                 // Explicitly perform signed multiplication.
                 // The result of (signed [A-1:0] * signed [B-1:0]) is signed [A+B-1:0].
-                // So, product_temp (signed [IN_WIDTH+WGT_WIDTH-1:0]) is correctly sized.
+                // So, product_temp should be sized like this: (signed [IN_WIDTH+WGT_WIDTH-1:0])
                 product_temp = val_i_16b * val_w_16b;
 
                 // Sign-extend product to MAC_WIDTH.
-                // Given IN_WIDTH=16, WGT_WIDTH=16, MAC_WIDTH=32, IN_WIDTH+WGT_WIDTH == MAC_WIDTH.
                 if ( (IN_WIDTH + WGT_WIDTH) > MAC_WIDTH ) begin
                      $error("TB: Product width (%0d) > MAC_WIDTH (%0d). Mismatch with MLP_mac assumption.", IN_WIDTH+WGT_WIDTH, MAC_WIDTH);
                      product_extended = product_temp[MAC_WIDTH-1:0];
@@ -125,6 +124,8 @@ module tb_MLP_layer;
                  $display("BM: Neuron %0d FINAL MAC SUM = %d (0x%h)", n, neuron_mac_sum[n], neuron_mac_sum[n]);
             end
 
+            // Apply ReLU and clipping
+            
             if (neuron_mac_sum[n] < 0) begin
                 temp_out_val = 0;
             end else if (neuron_mac_sum[n] > MAX_VAL_CALC) begin
@@ -172,8 +173,8 @@ module tb_MLP_layer;
             end
         end
         // Override specific weights for targeted testing if needed
-        if (N_NEURONS >= 2 && N_INPUTS >=1 ) current_test_weights[1][0] = -5;         // Negative weight
-        if (N_NEURONS >=3 && WGT_WIDTH == 16) current_test_weights[2][0] = 1000;     // Larger weight
+        // if (N_NEURONS >= 2 && N_INPUTS >=1 ) current_test_weights[1][0] = -5;         // Negative weight
+        // if (N_NEURONS >=3 && WGT_WIDTH == 16) current_test_weights[2][0] = 1000;     // Larger weight
 
         // Load weights into the DUT's weight memories
         wr_en_tb = 1'b1;

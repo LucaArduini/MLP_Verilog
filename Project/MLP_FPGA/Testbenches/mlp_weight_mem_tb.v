@@ -134,7 +134,7 @@ module tb_MLP_weight_mem;
 
         // --- Test Case 6: Read from an unwritten address (optional - depends on RAM init) ---
         // BRAMs typically initialize to X or 0 in simulation if not explicitly initialized.
-        // Your DUT (MLP_weight_mem) does not explicitly initialize 'mem' on reset.
+        // This DUT (MLP_weight_mem) does not explicitly initialize 'mem' on reset.
         // Therefore, in a typical Verilog simulation, uninitialized 'reg' elements
         // will default to 'X'. Some simulators might default to '0'.
         $display("[%0t] Test Case 6: Read from unwritten address (10).", $time);
