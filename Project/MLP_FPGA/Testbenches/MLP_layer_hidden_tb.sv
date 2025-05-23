@@ -4,9 +4,9 @@
 
 `timescale 1ns/1ps
 
-module tb_MLP_layer;
+module tb_MLP_layer_hidden;
 
-    // Parameters for the MLP_layer (matching DUT defaults or configurable)
+    // Parameters for the MLP_layer_hidden (matching DUT defaults or configurable)
     localparam N_INPUTS     = 2+1;
     localparam N_NEURONS    = 4;
     localparam IN_WIDTH     = 16;
@@ -35,7 +35,7 @@ module tb_MLP_layer;
     wire [N_NEURONS*OUT_WIDTH-1:0]      outputs_flat_dut;
 
     // Instantiate the Device Under Test (DUT)
-    MLP_layer #(
+    MLP_layer_hidden #(
         .N_INPUTS     (N_INPUTS),
         .N_NEURONS    (N_NEURONS),
         .IN_WIDTH     (IN_WIDTH),
@@ -147,7 +147,7 @@ module tb_MLP_layer;
     logic [N_NEURONS*OUT_WIDTH-1:0] expected_outputs_tc3;
     // --- Test Sequence ---
     initial begin
-        $display("[%0t] Starting Testbench for MLP_layer", $time);
+        $display("[%0t] Starting Testbench for MLP_layer_hidden", $time);
         clk = 1; // Initialize clk, first transition will be to 0
 
         // Initialize all control signals to a known benign state

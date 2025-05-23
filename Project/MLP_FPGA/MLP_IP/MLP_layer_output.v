@@ -1,4 +1,4 @@
-module MLP_layer #(
+module MLP_layer_output #(
     parameter N_INPUTS     = 2+1,                   // Number of inputs to the layer (and thus, weights per neuron)
     parameter N_NEURONS    = 4,                     // Number of neurons in this layer
     parameter IN_WIDTH     = 16,                    // Bit-width of each input value
@@ -21,7 +21,7 @@ module MLP_layer #(
     input   [$clog2(N_INPUTS)-1:0]    input_index,   // Index of the current input_value (0 to N_INPUTS-1), used as read address for weight memories
     input                             start,         // Signal to initialize/reset all MAC accumulators (acc = input * weight, or 0 if first input is 0)
     input                             valid,         // Signal to trigger the accumulation step in all MAC units (acc += input * weight)
-    input                             relu_en,       // Enable signal to register the MAC outputs through ReLU/clipping stage into `outputs_flat`
+    input                             output_en,     // Enable signal to register the MAC outputs (after clipping) into `outputs_flat`
 
     // === Output vector ===
     // All neuron outputs are concatenated into a single flat vector.
@@ -29,8 +29,9 @@ module MLP_layer #(
 );
 
     // === Constants ===
-    // Maximum positive value representable by OUT_WIDTH bits (signed, but used for positive clipping)
-    localparam signed [OUT_WIDTH-1:0] MAX_VAL = {1'b0, {(OUT_WIDTH-1){1'b1}}}; // e.g., 0111...1
+    // Maximum positve value and minimum negative value representable, used for clipping
+    localparam signed [OUT_WIDTH-1:0] MAX_OUTPUT_VAL = {1'b0, {(OUT_WIDTH-1){1'b1}}}; // e.g., for OUT_WIDTH=16, MAX_OUTPUT_VAL is 16'h7FFF (32767)
+    localparam signed [OUT_WIDTH-1:0] MIN_OUTPUT_VAL = {1'b1, {(OUT_WIDTH-1){1'b0}}}; // e.g., for OUT_WIDTH=16, MIN_OUTPUT_VAL is 16'h8000 (-32768)
 
     // === Weight memory outputs ===
     // Array of wires to hold the weight read from each neuron's dedicated weight memory.
@@ -80,19 +81,25 @@ module MLP_layer #(
 	endgenerate
 
     // === ReLU + Clipping stage ===
-    // This block registers the MAC outputs after applying ReLU and clipping, when 'relu_en' is asserted.
-	always @(posedge clk) begin : relu_clip_logic
-	    integer n; // Loop variable for neurons
-		if (relu_en) begin
+    // This block registers the MAC outputs into `outputs_flat` when 'output_en' is asserted.
+    // Before registration, the MAC output (MAC_WIDTH bits) is clipped to fit within OUT_WIDTH bits.
+    // There is NO ReLU function applied in this output layer.
+	always @(posedge clk) begin : output_registration_and_clipping_logic
+	    integer n; // Loop variable for iterating through neurons
+		if (output_en) begin
 			for (n = 0; n < N_NEURONS; n = n + 1) begin
-				if (mac_outputs[n] < 0) begin                       // ReLU: if negative, output 0
-					outputs_flat[n*OUT_WIDTH +: OUT_WIDTH] <= 0;
-				end
-                else if (mac_outputs[n] > MAX_VAL) begin            // Clipping: if greater than MAX_VAL, output MAX_VAL
-                                                                    // Note: This comparison implicitly extends MAX_VAL to MAC_WIDTH for comparison.
-					outputs_flat[n*OUT_WIDTH +: OUT_WIDTH] <= MAX_VAL;
-				end
-                else begin                                          // Otherwise, output the (truncated) MAC result
+                // Compare the MAC_WIDTH accumulator value with the OUT_WIDTH limits.
+                // MAX_OUTPUT_VAL and MIN_OUTPUT_VAL are implicitly sign-extended to MAC_WIDTH
+                // for the comparison because they are declared as 'signed'.
+				if (mac_outputs[n] > MAX_OUTPUT_VAL) begin
+                    // If MAC output exceeds the maximum positive value for OUT_WIDTH, clip to MAX_OUTPUT_VAL.
+					outputs_flat[n*OUT_WIDTH +: OUT_WIDTH] <= MAX_OUTPUT_VAL;
+				end else if (mac_outputs[n] < MIN_OUTPUT_VAL) begin
+                    // If MAC output is less than the minimum negative value for OUT_WIDTH, clip to MIN_OUTPUT_VAL.
+					outputs_flat[n*OUT_WIDTH +: OUT_WIDTH] <= MIN_OUTPUT_VAL;
+				end else begin
+                    // If the MAC output is within the representable range of OUT_WIDTH,
+                    // take the lower OUT_WIDTH bits of the MAC result.
 					outputs_flat[n*OUT_WIDTH +: OUT_WIDTH] <= mac_outputs[n][OUT_WIDTH-1:0];
 				end
 			end

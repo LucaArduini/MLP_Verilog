@@ -18,15 +18,15 @@
 
 
 
-1. si ma, poi effettivamente come leggo pesi e input?
-2. se ora io volessi fare in modo che la MLP eseguisse più inferenze (in sequenza) come dovrei fare?
-3. la width del MAC_accumulator è giusta 64?
-
-
-
-X. ma quanti MAC ci riusciamo a mettere nella FPGA? Che nel caso alziamo il num di perceptron nell'hidden layer...
-F. finché usiamo i numeri hardcoded nelle tb funziona ed ok, ma se usiamo i nostri numeri scritti nei txt siamo sicuri che le operazioni funzionano bene?
+-. si ma, poi effettivamente come leggo pesi e input?
+1. se ora io volessi fare in modo che la MLP eseguisse più inferenze (in sequenza) come dovrei fare?
+2. la width del MAC_accumulator è giusta 64?
+3. ma quanti MAC ci riusciamo a mettere nella FPGA? Che nel caso alziamo il num di perceptron nell'hidden layer...
+-. finché usiamo i numeri hardcoded nelle tb funziona ed ok, ma se usiamo i nostri numeri scritti nei txt siamo sicuri che le operazioni funzionano bene?
+    R: la conversione non viene fatta come la pensa Luca, viene fatta tutta con la "stessa conversione" -> torna
 
     DA FARE:
 - aggiusta dimensioni wire nel mlp.v
+- vedi con sinc a risultato negativo
 - capisci come Coco voleva fare la moltiplicazione
+- pulisci Git
