@@ -28,5 +28,6 @@
     DA FARE:
 - aggiusta dimensioni wire nel mlp.v
 - vedi con sinc a risultato negativo
+- oltre che i pesi, anche l'input deve esser letto da txt anziché hardcoded
 - capisci come Coco voleva fare la moltiplicazione
 - pulisci Git

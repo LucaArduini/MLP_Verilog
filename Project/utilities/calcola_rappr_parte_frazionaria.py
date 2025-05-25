@@ -24,5 +24,5 @@ def frazione_binaria_16bit(numero):
     return risultato_formattato
 
 # Esempio d'uso
-numero = 0.57182765
+numero = 0.0044
 frazione_binaria_16bit(numero)
