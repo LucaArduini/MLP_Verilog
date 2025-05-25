@@ -9,17 +9,17 @@ namespace impl = cnl::_impl;
 // Using namespaces for convenience in this .cpp file
 using namespace std;
 using namespace cnl;
-const int fractional_bits = 16;     // Number of fractional bits for fixed-point representation   
+const int fractional_bits = 8;     // Number of fractional bits for fixed-point representation   
 
 // Define the fixed-point type
-using fixed_point_32 = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits>>;
+using fixed_point_32 = cnl::scaled_integer<int16_t, cnl::power<-fractional_bits>>;
 
 // //////////////////////////////////////////// //
 //             MLP parameters for inference     //
 // //////////////////////////////////////////// //
 const int n_output = 1;             // Number of outputs
 const int n_features = 2;           // Number of input features
-const int n_hidden = 300;           // Number of neurons in the hidden layer
+const int n_hidden = 4;           // Number of neurons in the hidden layer
 
 // Weights are assumed to be loaded from a file
 array<array<fixed_point_32, n_features + 1>, n_hidden> w1;
@@ -61,9 +61,9 @@ void A_mult_B(const fixed_point_32* A_data, const fixed_point_32* B_data, fixed_
             for (int k = 0; k < colA; k++) {
                 fixed_point_32 a = A_data[i * colA + k];
                 fixed_point_32 b = B_data[k * colB + j];
-                int64_t a_raw = impl::to_rep(a);
-                int64_t b_raw = impl::to_rep(b);
-                int64_t product = (a_raw * b_raw) >> fractional_bits; // Adjusted for 32-bit representation
+                int16_t a_raw = impl::to_rep(a);
+                int16_t b_raw = impl::to_rep(b);
+                int32_t product = (a_raw * b_raw) >> fractional_bits; // Adjusted for 32-bit representation
                 // Check for overflow   
                 if (product > std::numeric_limits<int32_t>::max()) {
                     cout << "Overflow detected!" << endl;
@@ -264,8 +264,8 @@ bool load_weights(const string& filename_w1, const string& filename_w2) {
 
 int main() {
     // Specify the filenames where the trained weights are stored
-    string weights_file_w1 = "weights_w1.txt";
-    string weights_file_w2 = "weights_w2.txt";
+    string weights_file_w1 = "weights_w1_dec.txt";
+    string weights_file_w2 = "weights_w2_dec.txt";
 
     // Load the trained weights
     if (!load_weights(weights_file_w1, weights_file_w2)) {
@@ -273,7 +273,7 @@ int main() {
     }
 
     // Example inference
-    array<fixed_point_32, n_features> input_sample = {fixed_point_32(1.0), fixed_point_32(-2.0)};
+    array<fixed_point_32, n_features> input_sample = {fixed_point_32(10.0), fixed_point_32(0.0)};
     array<fixed_point_32, n_output> prediction = MLP_inference(input_sample);
 
     // CNL types usually have operator<< overloaded for cout.

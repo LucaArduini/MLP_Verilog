@@ -2,6 +2,7 @@
 #include <string>
 #include <algorithm> // For std::reverse, if needed for endianness visualization
 #include <bitset>    // For std::bitset
+#include <typeinfo> // Required for typeid 
 
 #include "cnl/include/cnl/all.h" // Or specific CNL headers
 
@@ -92,6 +93,14 @@ int main() {
     auto rawres = cnl::unwrap(a*b);
     std::bitset<32> bitsres(rawres);
     std::cout << "Raw bits res: " << bitsres << '\n';
+    
+
+    auto mul = a * b;
+    std::cout << "a * b: " << mul << std::endl;
+    // What type is mul?
+    std::cout << "Type of a: " << typeid(a).name() << std::endl;
+    std::cout << "Type of b: " << typeid(b).name() << std::endl;
+    std::cout << "Type of mul: " << typeid(mul).name() << std::endl;
 
 
     return 0;

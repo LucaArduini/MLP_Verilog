@@ -94,8 +94,10 @@ module alt_mlp_tb;
         input signed [WGT_WIDTH-1:0]  p_output_weights[0:N_OUTPUT-1][0:N_HIDDEN]
     );
         logic signed [MAC_WIDTH-1:0]  l_hidden_sum[0:N_HIDDEN-1];
+        logic signed [MAC_WIDTH-1:0]  l_hidden_scaled_sum[0:N_HIDDEN-1]; // Scaled sum
         logic signed [OUT_WIDTH-1:0]  l_hidden_activated[0:N_HIDDEN-1];
         logic signed [MAC_WIDTH-1:0]  l_output_sum; 
+        logic signed [MAC_WIDTH-1:0]  l_output_scaled_sum; // Scaled sum
         logic signed [OUT_WIDTH-1:0]  l_final_output;
         integer i, j;
 
@@ -103,21 +105,24 @@ module alt_mlp_tb;
 
         $display("Behavioral Func: Calculating Hidden Layer Outputs (with ReLU)...");
         for (i = 0; i < N_HIDDEN; i = i + 1) begin
-            l_hidden_sum[i] = p_hidden_weights[i][0]; 
+            // Calculate the weighted sum for each hidden neuron
+            l_hidden_sum[i] = p_hidden_weights[i][0]; // Bias
             for (j = 0; j < N_INPUTS; j = j + 1) begin
                 l_hidden_sum[i] = l_hidden_sum[i] + p_inputs[j] * p_hidden_weights[i][j+1];
             end
-            l_hidden_activated[i] = apply_relu_saturate_func(l_hidden_sum[i]);
-            $display("  Func Hidden Neuron %0d: Bias=%0d (%h), Sum = %0d, ReLU Output = %0d", i, p_hidden_weights[i][0], p_hidden_weights[i][0], l_hidden_sum[i], l_hidden_activated[i]);
+            l_hidden_scaled_sum[i] = l_hidden_sum[i] >>> WGT_WIDTH/2; // Arithmetic right shift
+            l_hidden_activated[i] = apply_relu_saturate_func(l_hidden_scaled_sum[i]);
+            $display("  Func Hidden Neuron %0d: Bias=%0d (%h), Sum = %0d, Scaled Sum = %0d, ReLU Output = %0d", i, p_hidden_weights[i][0], p_hidden_weights[i][0], l_hidden_sum[i], l_hidden_scaled_sum[i], l_hidden_activated[i]);
         end
 
         $display("Behavioral Func: Calculating Output Layer Outputs (with ReLU)...");
-        l_output_sum = p_output_weights[0][0]; 
+        l_output_sum = p_output_weights[0][0]; // Bias
         for (j = 0; j < N_HIDDEN; j = j + 1) begin
             l_output_sum = l_output_sum + l_hidden_activated[j] * p_output_weights[0][j+1];
         end
-        l_final_output = apply_relu_saturate_func(l_output_sum);
-        $display("  Func Output Neuron 0: Bias=%0d (%h), Sum = %0d, Expected ReLU Output = %0d", p_output_weights[0][0],p_output_weights[0][0],l_output_sum, l_final_output);
+        l_output_scaled_sum = l_output_sum >>> WGT_WIDTH/2; // Arithmetic right shift
+        l_final_output = l_output_scaled_sum;
+        $display("  Func Output Neuron 0: Bias=%0d (%h), Sum = %0d, Scaled Sum = %0d, Decimal number = %0f, Decimal number divided again = %0f", p_output_weights[0][0],p_output_weights[0][0],l_output_sum,l_output_scaled_sum, l_output_sum/256.0 , l_output_scaled_sum/256.0);
 
         return l_final_output;
     endfunction : calculate_mlp_behavioral
@@ -148,9 +153,9 @@ module alt_mlp_tb;
 
         // --- Populate Behavioral Model Inputs ---
         // Inputs: x = [7, -3] (hardcoded for this tb)
-        tb_inputs[0] = 7;
-        tb_inputs[1] = -3;
-
+        tb_inputs[0] = 0;
+        tb_inputs[1] = 0;
+        $display("TB: Input vector x = [%0d, %0d]", tb_inputs[0], tb_inputs[1]);
         // --- Read Hidden Layer Weights from File using $readmemb ---
         $display("[%0t] Main TB: Reading hidden layer weights from weights_w1.txt...", $time);
         $readmemb("weights_w1.txt", temp_hidden_weights_1d);
@@ -165,10 +170,10 @@ module alt_mlp_tb;
         end
         $display("[%0t] Main TB: Finished reading and mapping hidden layer weights.", $time);
         // For verification, display some loaded weights
-        // for (int h_idx = 0; h_idx < N_HIDDEN; h_idx = h_idx + 1) begin
-        //     $display("TB: Hidden Neuron %0d Weights (Hex): Bias=%h, W_in0=%h, W_in1=%h", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);
-        //     $display("TB: Hidden Neuron %0d Weights (Dec): Bias=%d, W_in0=%d, W_in1=%d", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);
-        // end
+        for (int h_idx = 0; h_idx < N_HIDDEN; h_idx = h_idx + 1) begin
+            $display("TB: Hidden Neuron %0d Weights (Hex): Bias=%h, W_in0=%h, W_in1=%h", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);
+            $display("TB: Hidden Neuron %0d Weights (Dec): Bias=%d, W_in0=%d, W_in1=%d", h_idx, tb_hidden_weights[h_idx][0], tb_hidden_weights[h_idx][1], tb_hidden_weights[h_idx][2]);
+        end
 
 
         // --- Read Output Layer Weights from File using $readmemb ---

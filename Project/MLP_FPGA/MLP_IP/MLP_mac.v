@@ -26,7 +26,7 @@ module MLP_mac #(
     assign product_ext = {{(ACC_WIDTH - (A_WIDTH + B_WIDTH)){product[A_WIDTH + B_WIDTH - 1]}}, product};
 
     // Output the current accumulator value
-    assign result = acc;
+    assign result = (acc >>> A_WIDTH/2);
 
     // Sequential logic for accumulator updates
     always @(posedge clk) begin
@@ -48,6 +48,7 @@ module MLP_mac #(
         //     // This is the fundamental behavior of a memory element (like a flip-flop):
         //     // it "remembers" its state.
         // end
+
     end
 
 endmodule

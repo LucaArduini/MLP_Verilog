@@ -33,7 +33,7 @@ const int num_test = 2250;          // Number of test patterns
 const int n_output = 1;             // Number of outputs (neurons in the output layer)
 const int n_features = 2;           // Number of input features
 const int n_hidden = 4;             // Number of neurons in the hidden layer
-const int epochs = 20;              // Number of training epochs
+const int epochs = 500;              // Number of training epochs
 float eta = 1e-6;                   // Learning rate
 const int minibatches = 30;         // Number of mini-batches for training
 
