@@ -32,6 +32,14 @@ using fixed_point_16 = cnl::scaled_integer<int16_t, cnl::power<-fractional_bits>
 // Define a wider accumulator type for intermediate sums in matrix multiplications
 using temp_accumulator_fp = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits>>; // e.g., Q23.8
 
+// If you want to use a wider type for training, say Q15.16, these are the critical values to update:
+
+// const int fractional_bits = 16;
+// using fixed_point_16 = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits>>;
+// using temp_accumulator_fp = cnl::scaled_integer<int64_t, cnl::power<-fractional_bits>>; 
+// fixed_point_16 eta = fixed_point_16{0.001}; 
+// const temp_accumulator_fp grad_clip_abs_val_wide = 1000.0;
+// const fixed_point_16 max_abs_final_update = fixed_point_16{0.001};
 
 // //////////////////////////////////////////// //
 //                 Dataset parameters           //
@@ -49,7 +57,7 @@ const int num_test = 2250;          // Number of test patterns
 const int n_output = 1;             // Number of outputs (neurons in the output layer)
 const int n_features = 2;           // Number of input features
 const int n_hidden = 4;             // Number of neurons in the hidden layer
-const int epochs = 500;              // Number of training epochs
+const int epochs = 200;              // Number of training epochs
 fixed_point_16 eta = fixed_point_16{1.0/256.0}; // Learning rate (smallest positive step for Q7.8)
 const int minibatches = 30;         // Number of mini-batches for training
 
@@ -216,6 +224,9 @@ void save_weights_w2() {
     else std::cout << "Weights w2 saved." << endl;
 }
 
+
+//Reminder: This function generates a dataset for f(x1, x2) = 10 * sinc(x1) * sinc(x2)
+// where sinc(x) = sin(x)/x, and sinc(0) = 1.
 void sinc2D_gen(fixed_point_16* x_ptr, fixed_point_16* y_ptr, int num_patterns){
     int num_points = sqrt(num_patterns);
     vector<fixed_point_16> x1_coords(num_points);
@@ -329,7 +340,8 @@ void MLP_MSELIN_backprop(const array<fixed_point_16, elem> &y_true){
     A_mult_B_T_wide_dest(dL_drZ1[0].data(), a0[0].data(), dL_dW1_wide[0].data(), n_hidden, elem, n_features+1);
 
     // Step 6: Convert wide gradients to Q7.8 with clipping
-    const temp_accumulator_fp grad_clip_abs_val_wide = 10.0; 
+    // This is crucial to prevent saturation in fixed-point representation
+    const temp_accumulator_fp grad_clip_abs_val_wide = 100.0; //TO BE EXPERIMENTED WITH
 
     for (int i = 0; i < n_hidden; ++i) {
         for (int j = 0; j < n_features+1; ++j) {
@@ -371,7 +383,10 @@ void MLP_MSELIN_train(const array<array<fixed_point_16, n_features>, num_train> 
 
             MLP_MSELIN_backprop(y_index);
 
-            const fixed_point_16 max_abs_final_update = fixed_point_16{2.0/256.0}; 
+
+            // Very small, controlled updates to prevent saturation
+            // This is a crucial step to ensure the updates are within the range of fixed_point_16
+            const fixed_point_16 max_abs_final_update = fixed_point_16{2.0/256.0}; // To be experimented with
 
             array<array<fixed_point_16, n_features+1>, n_hidden> delta_W1;
             for (int i = 0; i < n_hidden; ++i) {
@@ -428,6 +443,7 @@ void MLP_MSELIN_predict(fixed_point_16* x_ptr, fixed_point_16* y_pred_ptr, int t
     }
 }
 
+// Function to predict a single sample using the trained MLP
 fixed_point_16 MLP_predict_single_sample(const array<fixed_point_16, n_features>& single_x_val) {
     array<fixed_point_16, n_features + 1> local_a0;
     array<fixed_point_16, n_hidden>       local_rZ1;
