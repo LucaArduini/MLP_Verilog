@@ -31,7 +31,7 @@ const int fractional_bits = 8;
 using fixed_point_16 = cnl::scaled_integer<int16_t, cnl::power<-fractional_bits>>;
 
 // Define a wider accumulator type for intermediate sums in matrix multiplications
-using temp_accumulator_fp = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits>>; // e.g., Q23.8
+using temp_accumulator_fp = cnl::scaled_integer<int64_t, cnl::power<-fractional_bits*2>>; 
 
 // If you want to use a wider type for training, say Q15.16, these are the critical values to update:
 
@@ -493,7 +493,7 @@ void MLP_MSELIN_predict(fixed_point_16* x_ptr, fixed_point_16* y_pred_ptr, int t
     }
 }
 
-using temp_accumulator_test = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits*2>>; // 
+using temp_accumulator_test = cnl::scaled_integer<int64_t, cnl::power<-fractional_bits*2>>; // 
 
 // Function to predict a single sample using the trained MLP
 fixed_point_16 MLP_predict_single_sample(const array<fixed_point_16, n_features>& single_x_val) {
