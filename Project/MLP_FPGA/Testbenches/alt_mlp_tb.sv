@@ -8,7 +8,7 @@ module alt_mlp_tb;
     localparam N_OUTPUT     = 1;
     localparam IN_WIDTH     = 16;
     localparam WGT_WIDTH    = 16;
-    localparam MAC_WIDTH    = 64; // For internal accumulation precision
+    localparam MAC_WIDTH    = 32; // For internal accumulation precision
     localparam OUT_WIDTH    = 16; // Final output and intermediate activated output width
 
     localparam CLK_PERIOD = 10;
@@ -106,7 +106,7 @@ module alt_mlp_tb;
         $display("Behavioral Func: Calculating Hidden Layer Outputs (with ReLU)...");
         for (i = 0; i < N_HIDDEN; i = i + 1) begin
             // Calculate the weighted sum for each hidden neuron
-            l_hidden_sum[i] = p_hidden_weights[i][0]; // Bias
+            l_hidden_sum[i] = p_hidden_weights[i][0] <<< WGT_WIDTH/2; // Bias
             for (j = 0; j < N_INPUTS; j = j + 1) begin
                 l_hidden_sum[i] = l_hidden_sum[i] + p_inputs[j] * p_hidden_weights[i][j+1];
             end
@@ -116,9 +116,11 @@ module alt_mlp_tb;
         end
 
         $display("Behavioral Func: Calculating Output Layer Outputs (with ReLU)...");
-        l_output_sum = p_output_weights[0][0]; // Bias
+        l_output_sum = p_output_weights[0][0] << WGT_WIDTH/2; // Bias
         for (j = 0; j < N_HIDDEN; j = j + 1) begin
+            //p_output_weights[0][j+1] = p_output_weights[0][j+1] <<< WGT_WIDTH/2; // Scale weights
             l_output_sum = l_output_sum + l_hidden_activated[j] * p_output_weights[0][j+1];
+            $display(" l_output_sum after adding hidden neuron %0d output: %0d, p_output_weights[0][%0d] = %0d, l_hidden_activated[%0d] = %0d", j, l_output_sum, j+1, p_output_weights[0][j+1], j, l_hidden_activated[j]);
         end
         l_output_scaled_sum = l_output_sum >>> WGT_WIDTH/2; // Arithmetic right shift
         l_final_output = l_output_scaled_sum;
@@ -152,9 +154,8 @@ module alt_mlp_tb;
         @(posedge clk); // Allow a cycle for reset to propagate fully
 
         // --- Populate Behavioral Model Inputs ---
-        // Inputs: x = [7, -3] (hardcoded for this tb)
-        tb_inputs[0] = 0;
-        tb_inputs[1] = 0;
+        tb_inputs[0] = (-1*(1 << IN_WIDTH/2)); 
+        tb_inputs[1] = (2*(1 << IN_WIDTH/2));
         $display("TB: Input vector x = [%0d, %0d]", tb_inputs[0], tb_inputs[1]);
         // --- Read Hidden Layer Weights from File using $readmemb ---
         $display("[%0t] Main TB: Reading hidden layer weights from weights_w1.txt...", $time);
@@ -196,7 +197,7 @@ module alt_mlp_tb;
 
         // --- Calculate Expected Output using Behavioral Function ---
         tb_expected_output_value = calculate_mlp_behavioral(tb_inputs, tb_hidden_weights, tb_output_weights);
-        $display("[%0t] Main TB: Expected output from behavioral function = %0d", $time, tb_expected_output_value);
+        $display("[%0t] Main TB: Expected output from behavioral function = %0d, Decimal = %0f", $time, tb_expected_output_value, tb_expected_output_value / 256.0);
 
         // --- DUT Configuration and Execution ---
         // === Load input vector: x = [7, -3] ===
@@ -240,14 +241,14 @@ module alt_mlp_tb;
         @(posedge clk); 
         dut_output_value = readdata;
 
-        $display("[%0t] Main TB: MLP output from DUT: %0d (raw readdata: 0x%0h)", $time, dut_output_value, readdata);
-        $display("[%0t] Main TB: MLP expected output (behavioral model): %0d", $time, tb_expected_output_value);
+        $display("[%0t] Main TB: MLP output from DUT: %0d (raw readdata: 0x%0h), Decimal = %0f", $time, dut_output_value, readdata, dut_output_value / 256.0);
+        $display("[%0t] Main TB: MLP expected output (behavioral model): %0d, Decimal = %0f", $time, tb_expected_output_value, tb_expected_output_value / 256.0);
 
         // === Compare and Report ===
         if (dut_output_value == tb_expected_output_value) begin
             $display(">>> TEST PASSED: DUT output matches behavioral model.");
         end else begin
-            $error(">>> TEST FAILED: DUT output %0d does not match expected %0d. Raw DUT readdata: 0x%0h",
+            $error(">>> TEST FAILED: DUT output %0d does not match expected %0f. Raw DUT readdata: 0x%0h",
                    dut_output_value, tb_expected_output_value, readdata);
         end
 

@@ -16,6 +16,7 @@
 using namespace std;
 namespace impl = cnl::_impl;        // Namespace alias for CNL implementation details
 
+bool load_dataset = true; // Set to true to load dataset from files
 
 // //////////////////////////////////////////// //
 //          Fixed-Point parameters            //
@@ -57,7 +58,7 @@ const int num_test = 2250;          // Number of test patterns
 const int n_output = 1;             // Number of outputs (neurons in the output layer)
 const int n_features = 2;           // Number of input features
 const int n_hidden = 4;             // Number of neurons in the hidden layer
-const int epochs = 200;              // Number of training epochs
+const int epochs = 500;              // Number of training epochs
 fixed_point_16 eta = fixed_point_16{1.0/256.0}; // Learning rate (smallest positive step for Q7.8)
 const int minibatches = 30;         // Number of mini-batches for training
 
@@ -169,8 +170,8 @@ void elem_mult_elem(const fixed_point_16* A_ptr, const fixed_point_16* B_ptr, fi
 }
 
 void save_weights_w1() {
-    ofstream outFile_dec("weights_w1_dec.txt");
-    ofstream outFile_bin("weights_w1_bin.txt");
+    ofstream outFile_dec("weights_w1_decFix.txt");
+    ofstream outFile_bin("weights_w1_binFix.txt");
     if (!outFile_bin || !outFile_dec) {
         cerr << "Error opening file for writing w1" << endl;
         return;
@@ -197,8 +198,8 @@ void save_weights_w1() {
 }
 
 void save_weights_w2() {
-    ofstream outFile_dec("weights_w2_dec.txt");
-    ofstream outFile_bin("weights_w2_bin.txt");
+    ofstream outFile_dec("weights_w2_decFix.txt");
+    ofstream outFile_bin("weights_w2_binFix.txt");
     if (!outFile_bin || !outFile_dec) {
         cerr << "Error opening file for writing w2" << endl;
         return;
@@ -225,9 +226,10 @@ void save_weights_w2() {
 }
 
 
+
 //Reminder: This function generates a dataset for f(x1, x2) = 10 * sinc(x1) * sinc(x2)
 // where sinc(x) = sin(x)/x, and sinc(0) = 1.
-void sinc2D_gen(fixed_point_16* x_ptr, fixed_point_16* y_ptr, int num_patterns){
+void sinc2D_gen(fixed_point_16* x_ptr, fixed_point_16* y_ptr, int num_patterns, string type){
     int num_points = sqrt(num_patterns);
     vector<fixed_point_16> x1_coords(num_points);
     fixed_point_16 start_x1 = -5.0; fixed_point_16 end_x1 = 5.0;
@@ -265,6 +267,50 @@ void sinc2D_gen(fixed_point_16* x_ptr, fixed_point_16* y_ptr, int num_patterns){
             y_ptr[pattern_idx]                  = YY[row][col];
         }
     }
+    //Save the dataset to files
+    ofstream x_file("sinc2D_x_"+type+".txt");
+    ofstream y_file("sinc2D_y_"+type+".txt");
+    if (x_file.is_open() && y_file.is_open()) {
+        for (int i = 0; i < num_patterns; ++i) {
+            x_file << fixed << setprecision(8) << x_ptr[i * n_features] << " " << x_ptr[i * n_features + 1] << endl;
+            y_file << fixed << setprecision(8) << y_ptr[i] << endl;
+        }
+        x_file.close();
+        y_file.close();
+        cout << "Dataset saved to sinc2D_x.txt and sinc2D_y.txt" << endl;
+    } else {
+        cerr << "Unable to open files for writing." << endl;
+    }
+
+}
+
+// Function to read the dataset from files
+void read_dataset_train(array<array<fixed_point_16, n_features>, num_train> &x, array<fixed_point_16, num_train> &y) {
+    ifstream x_file("sinc2D_x_train.txt");
+    ifstream y_file("sinc2D_y_train.txt");
+    if (!x_file.is_open() || !y_file.is_open()) {
+        cerr << "Error opening dataset files." << endl;
+        return;
+    }
+    for (int i = 0; i < num_train; ++i) {
+        x_file >> x[i][0] >> x[i][1];
+        y_file >> y[i];
+    }
+    x_file.close(); y_file.close();
+}
+
+void read_dataset_test(array<array<fixed_point_16, n_features>, num_test> &x, array<fixed_point_16, num_test> &y) {
+    ifstream x_file("sinc2D_x_test.txt");
+    ifstream y_file("sinc2D_y_test.txt");
+    if (!x_file.is_open() || !y_file.is_open()) {
+        cerr << "Error opening dataset files." << endl;
+        return;
+    }
+    for (int i = 0; i < num_test; ++i) {
+        x_file >> x[i][0] >> x[i][1];
+        y_file >> y[i];
+    }
+    x_file.close(); y_file.close();
 }
 
 void MLP_relu_inplace(const array<array<fixed_point_16, elem>, n_hidden> &z, array<array<fixed_point_16, elem>, n_hidden> &relu_out){
@@ -364,6 +410,8 @@ void MLP_MSELIN_backprop(const array<fixed_point_16, elem> &y_true){
 void MLP_MSELIN_train(const array<array<fixed_point_16, n_features>, num_train> &x, const array<fixed_point_16, num_train> &y){
     MLP_initialize_weights();
 
+
+
     for(int e=1; e<=epochs; e++) {
         array<array<int, elem>, minibatches> I;
         for (int i = 0; i < num_train; ++i) { int row = i % minibatches; int col = i / minibatches; I[row][col] = i; }
@@ -412,6 +460,8 @@ void MLP_MSELIN_train(const array<array<fixed_point_16, n_features>, num_train> 
         }
     }
     printf("Training completed.\n");
+    save_weights_w1();
+    save_weights_w2();
 }
 
 void MLP_MSELIN_predict(fixed_point_16* x_ptr, fixed_point_16* y_pred_ptr, int tot_elem) {
@@ -443,6 +493,8 @@ void MLP_MSELIN_predict(fixed_point_16* x_ptr, fixed_point_16* y_pred_ptr, int t
     }
 }
 
+using temp_accumulator_test = cnl::scaled_integer<int32_t, cnl::power<-fractional_bits*2>>; // 
+
 // Function to predict a single sample using the trained MLP
 fixed_point_16 MLP_predict_single_sample(const array<fixed_point_16, n_features>& single_x_val) {
     array<fixed_point_16, n_features + 1> local_a0;
@@ -455,42 +507,55 @@ fixed_point_16 MLP_predict_single_sample(const array<fixed_point_16, n_features>
     for (int j = 0; j < n_features; ++j) local_a0[j + 1] = single_x_val[j];
 
     for (int h = 0; h < n_hidden; ++h) {
-        temp_accumulator_fp sum = 0.0;
+        temp_accumulator_test sum = 0.0;
         for (int f = 0; f < n_features + 1; ++f) {
-            sum += static_cast<temp_accumulator_fp>(w1[h][f]) * local_a0[f];
+            sum += static_cast<temp_accumulator_test>(w1[h][f]) * local_a0[f];
         }
         local_rZ1[h] = static_cast<fixed_point_16>(sum);
     }
 
     for (int h = 0; h < n_hidden; ++h) local_rA1[h] = max(fixed_point_16{0.0f}, local_rZ1[h]);
 
+    for (int h = 0; h < n_hidden; ++h) {
+        std::cout << "a1[" << h << "] = " << cnl::unwrap(local_rA1[h]) << std::endl;
+    }
+
     local_a1[0] = 1.0f;
     for (int h = 0; h < n_hidden; ++h) local_a1[h + 1] = local_rA1[h];
     
-    temp_accumulator_fp sum_out = 0.0;
+    temp_accumulator_test sum_out = 0.0;
     for (int h = 0; h < n_hidden + 1; ++h) { 
-        sum_out += static_cast<temp_accumulator_fp>(w2[0][h]) * local_a1[h];
+        sum_out += static_cast<temp_accumulator_test>(w2[0][h]) * local_a1[h];
+        std::cout << cnl::unwrap(sum_out) << " sum_out after adding w2[0][" << h << "] = " << cnl::unwrap(w2[0][h]) << " * local_a1[" << h << "] = " << cnl::unwrap(local_a1[h]) << std::endl;
     }
     local_rZ2[0] = static_cast<fixed_point_16>(sum_out);
 
     return local_rZ2[0];
 }
 
+// Define a global constant for the seed for clarity
+const unsigned int RNG_SEED = 5134;
 
 int main() {
-    srand(static_cast<unsigned int>(time(nullptr)));
-
+    srand(RNG_SEED);
     array<array<fixed_point_16, n_features>, num_train> x_train_data;
     array<fixed_point_16, num_train> y_train_data;
-    sinc2D_gen(x_train_data[0].data(), y_train_data.data(), num_train);
-
     array<array<fixed_point_16, n_features>, num_test> x_test_data;
     array<fixed_point_16, num_test> y_test_data;
-    sinc2D_gen(x_test_data[0].data(), y_test_data.data(), num_test);
+    if (load_dataset) {
+        read_dataset_train(x_train_data, y_train_data);
+        read_dataset_test(x_test_data, y_test_data);
+
+        cout << "Dataset loaded from files." << endl;
+    } else {
+        cout << "Generating dataset..." << endl;
+        sinc2D_gen(x_train_data[0].data(), y_train_data.data(), num_train, "train");
+        sinc2D_gen(x_test_data[0].data(), y_test_data.data(), num_test, "test");
+    }
 
     array<int, num_train> shuffled_ind;
     iota(shuffled_ind.begin(), shuffled_ind.end(), 0); 
-    default_random_engine generator(std::time(nullptr));
+    default_random_engine generator(RNG_SEED);
     shuffle(shuffled_ind.begin(), shuffled_ind.end(), generator);
 
     array<array<fixed_point_16, n_features>, num_train> x_train_shuffled;
@@ -556,6 +621,8 @@ int main() {
                   << " -> True Output: " << true_output_double
                   << ", MLP Prediction: " << prediction_double
                   << ", Error: " << (true_output_double - prediction_double)
+                  << " (Q7.8: " << prediction_fp << ")"
+                  << " Integer Representation: " << cnl::unwrap(prediction_fp)
                   << std::endl;
     }
     

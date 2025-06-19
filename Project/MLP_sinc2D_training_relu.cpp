@@ -15,6 +15,8 @@
 using namespace std;
 namespace impl = cnl::_impl;        // Namespace alias for CNL implementation details
 
+bool load_dataset = false; // Set to true to load dataset from files
+
 
 
 // //////////////////////////////////////////// //
@@ -34,7 +36,7 @@ const int n_output = 1;             // Number of outputs (neurons in the output 
 const int n_features = 2;           // Number of input features
 const int n_hidden = 4;             // Number of neurons in the hidden layer
 const int epochs = 500;              // Number of training epochs
-float eta = 1e-6;                   // Learning rate
+float eta = 1e-5;                   // Learning rate
 const int minibatches = 30;         // Number of mini-batches for training
 
 vector<float> cost;                 // Vector to store the cost (MSE) at each training step (per mini-batch)
@@ -364,6 +366,47 @@ void sinc2D_gen(float* x, float* y, int num_patterns){
             y[pattern_idx]                  = YY[row][col];     // YY[i][j] from original indexing
         }
     }
+}
+
+//Read the dataset from files
+void read_dataset_train(array<array<float, n_features>, num_train> &x_train_data, array<float, num_train> &y_train_data) {
+    ifstream x_file("sinc2D_x_train.txt");
+    ifstream y_file("sinc2D_y_train.txt");
+
+    if (!x_file.is_open() || !y_file.is_open()) {
+        cerr << "Error opening training dataset files." << endl;
+        return;
+    }
+
+    for (int i = 0; i < num_train; ++i) {
+        for (int j = 0; j < n_features; ++j) {
+            x_file >> x_train_data[i][j];
+        }
+        y_file >> y_train_data[i];
+    }
+
+    x_file.close();
+    y_file.close();
+}
+
+void read_dataset_test(array<array<float, n_features>, num_test> &x_test_data, array<float, num_test> &y_test_data) {
+    ifstream x_file("sinc2D_x_test.txt");
+    ifstream y_file("sinc2D_y_test.txt");
+
+    if (!x_file.is_open() || !y_file.is_open()) {
+        cerr << "Error opening test dataset files." << endl;
+        return;
+    }
+
+    for (int i = 0; i < num_test; ++i) {
+        for (int j = 0; j < n_features; ++j) {
+            x_file >> x_test_data[i][j];
+        }
+        y_file >> y_test_data[i];
+    }
+
+    x_file.close();
+    y_file.close();
 }
 
 
@@ -747,23 +790,68 @@ void MLP_MSELIN_predict(float* x, float* y_pred, int tot_elem) {
     }
 }
 
+// Function to predict a single sample using the trained MLP
+float MLP_predict_single_sample(const array<float, n_features>& single_x_val) {
+    array<float, n_features + 1> local_a0;
+    array<float, n_hidden>       local_rZ1;
+    array<float, n_hidden>       local_rA1;
+    array<float, n_hidden + 1>   local_a1;
+    array<float, n_output>       local_rZ2;
+    local_rZ1.fill(0.0f); // Initialize local_rZ1 to zero
+    local_rA1.fill(0.0f); // Initialize local_rA1 to zero
+    local_rZ2.fill(0.0f); // Initialize local_rZ2 to zero
+    local_a1.fill(0.0f); // Initialize local_a1 to zero
+    local_a0.fill(0.0f); // Initialize local_a0 to zero
+
+    local_a0[0] = 1.0f;
+    for (int j = 0; j < n_features; ++j) local_a0[j + 1] = single_x_val[j];
+
+    for (int h = 0; h < n_hidden; ++h) {
+        for (int f = 0; f < n_features + 1; ++f) {
+            local_rZ1[h] += w1[h][f] * local_a0[f];
+                      
+        }
+    }
+
+    for (int h = 0; h < n_hidden; ++h) local_rA1[h] = max(0.0f, local_rZ1[h]);
+
+    local_a1[0] = 1.0f;
+    for (int h = 0; h < n_hidden; ++h) local_a1[h + 1] = local_rA1[h];
+    
+    for (int h = 0; h < n_hidden + 1; ++h) { 
+        local_rZ2[0] += (w2[0][h]) * local_a1[h];
+    }
+
+    return local_rZ2[0];
+}
 
 
+const unsigned int RNG_SEED = 1234;
 
 int main() {
-    // Seed the random number generator for weight initialization and shuffling
-    srand(static_cast<unsigned int>(time(nullptr)));
-
-    // --- Generate Training Data ---
-    // Declare arrays to hold training data
+    // --- Initialize Variables ---
     array<array<float, n_features>, num_train> x_train;
     array<float, num_train> y_train;
-    sinc2D_gen(x_train[0].data(), y_train.data(), num_train);
-
-    // --- Generate Test Data ---
     array<array<float, n_features>, num_test> x_test;
     array<float, num_test> y_test;
-    sinc2D_gen(x_test[0].data(), y_test.data(), num_test);
+
+    // Seed the random number generator for weight initialization and shuffling
+    srand(RNG_SEED);
+    if (load_dataset){
+        printf("Loading training and test data from files...\n");
+        read_dataset_train(x_train, y_train);
+        read_dataset_test(x_test, y_test);
+    }
+    else {
+        // Generate training and test data if not loading from files
+        printf("Generating training and test data...\n");
+        // --- Generate Training Data ---
+        sinc2D_gen(x_train[0].data(), y_train.data(), num_train);
+        // --- Generate Test Data ---
+        sinc2D_gen(x_test[0].data(), y_test.data(), num_test);
+    }
+
+    
 
 
     // --- Shuffle Training Data ---
@@ -774,7 +862,7 @@ int main() {
     }
 
     // Shuffle the indices
-    default_random_engine generator(std::time(nullptr));            // Seed random engine
+    default_random_engine generator(RNG_SEED);            // Seed random engine
     shuffle(shuffled_ind.begin(), shuffled_ind.end(), generator);
 
     // Create temporary arrays to store shuffled data
@@ -822,6 +910,42 @@ int main() {
     }
     acc_test /= (2.0 * y_test.size());
     printf("Test accuracy: (MSE): %g\n", acc_test);
+
+    std::cout << "\n--- Inference on Example Inputs ---" << std::endl;
+    std::cout << std::fixed << std::setprecision(5); 
+
+    std::vector<std::pair<std::array<double, n_features>, std::string>> example_raw_inputs = {
+        {{0.0, 0.0}, "(0,0)"},
+        {{1.0, 0.0}, "(1,0)"},
+        {{acos(-1.0)/2.0, acos(-1.0)/2.0}, "(pi/2, pi/2)"}, 
+        {{-1.0, 2.0}, "(-1,2)"},
+        {{3.14159, 0.0}, "(pi,0)"} 
+    };
+
+    for (const auto& raw_example : example_raw_inputs) {
+        const auto& raw_input_vals = raw_example.first;
+        const auto& input_label = raw_example.second;
+
+        array<float, n_features> current_input_fp;
+        current_input_fp[0] = static_cast<float>(raw_input_vals[0]);
+        current_input_fp[1] = static_cast<float>(raw_input_vals[1]);
+
+        double x1_double = raw_input_vals[0];
+        double x2_double = raw_input_vals[1];
+        double sinc_x1_true = (x1_double == 0.0) ? 1.0 : std::sin(x1_double) / x1_double;
+        double sinc_x2_true = (x2_double == 0.0) ? 1.0 : std::sin(x2_double) / x2_double;
+        double true_output_double = 10.0 * sinc_x1_true * sinc_x2_true;
+
+        float prediction_fp = MLP_predict_single_sample(current_input_fp);
+        
+        double prediction_double = static_cast<double>(prediction_fp);
+
+        std::cout << "Input: " << input_label << " [" << x1_double << ", " << x2_double << "]"
+                  << " -> True Output: " << true_output_double
+                  << ", MLP Prediction: " << prediction_double
+                  << ", Error: " << (true_output_double - prediction_double)
+                  << std::endl;
+    }
 
     return 0;
 }
