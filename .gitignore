@@ -17,6 +17,7 @@ Thumbs.db
 *.obj
 *.exe
 *.log
+*.bak
 
 # Ignora le librerie esterne (se scaricate localmente)
 /external/
