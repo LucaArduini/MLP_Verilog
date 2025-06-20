@@ -112,17 +112,22 @@ module tb_MLP_layer_hidden;
                 end else begin // (IN_WIDTH + WGT_WIDTH) == MAC_WIDTH
                      product_extended = product_temp;
                 end
-                neuron_mac_sum[n] = neuron_mac_sum[n] + product_extended;
+                neuron_mac_sum[n] = (neuron_mac_sum[n] + product_extended);
+
+                
 
                 if (n < 2) begin // Only print for first few neurons
                     $display("BM: n=%0d, i=%0d, product_temp=%d, product_extended=%d, neuron_mac_sum[%0d]=%d (0x%h)",
                              n, i, product_temp, product_extended, n, neuron_mac_sum[n], neuron_mac_sum[n]);
                 end
+                
             end
 
             if (n < 2) begin // Only print for first few neurons
                  $display("BM: Neuron %0d FINAL MAC SUM = %d (0x%h)", n, neuron_mac_sum[n], neuron_mac_sum[n]);
             end
+
+            neuron_mac_sum[n] = neuron_mac_sum[n] >>> (IN_WIDTH/2);
 
             // Apply ReLU and clipping
             
@@ -169,7 +174,7 @@ module tb_MLP_layer_hidden;
         // Define sample weights (Neuron Index x Input Feature Index)
         for (int n = 0; n < N_NEURONS; n++) begin
             for (int i = 0; i < N_INPUTS; i++) begin
-                current_test_weights[n][i] = signed'(n + i + 1 + (n*2) - (i*3)); // Pattern for varied small weights
+                current_test_weights[n][i] = signed'(n + i + 1 + (n*2) - (i*3)) <<< IN_WIDTH/2; // Pattern for varied small weights
             end
         end
         // Override specific weights for targeted testing if needed
@@ -195,9 +200,9 @@ module tb_MLP_layer_hidden;
 
         // Define a sample input vector
         for (int i = 0; i < N_INPUTS; i++) begin
-            current_test_input_vector[i] = signed'(i + 1 + (i* -1)); // e.g., [1, 0, -1, -2] for N_INPUTS=4
+            current_test_input_vector[i] = signed'(i + 1 + (i* -1)) <<< IN_WIDTH/2; // e.g., [1, 0, -1, -2] for N_INPUTS=4
         end
-        if (N_INPUTS >= 2) current_test_input_vector[1] = -2; // Specific value
+        if (N_INPUTS >= 2) current_test_input_vector[1] = -2 <<< IN_WIDTH/2; // Specific value
 
 
         // Process the input vector through the DUT
@@ -303,14 +308,14 @@ module tb_MLP_layer_hidden;
                  if (N_NEURONS > 0 && N_INPUTS > 0 && n==0 && i==0 && WGT_WIDTH==16 && OUT_WIDTH==16) begin
                     // Setup to test clipping for neuron 0 if inputs are e.g. all 10
                     current_test_weights[0][0] = 1000; 
-                    if (N_INPUTS > 1) current_test_weights[0][1] = 1000;
-                    if (N_INPUTS > 2) current_test_weights[0][2] = 1000;
-                    if (N_INPUTS > 3) current_test_weights[0][3] = 1000; 
+                    if (N_INPUTS > 1) current_test_weights[0][1] = 1000 <<< IN_WIDTH/2; // Large positive weight
+                    if (N_INPUTS > 2) current_test_weights[0][2] = 1000 <<< IN_WIDTH/2;
+                    if (N_INPUTS > 3) current_test_weights[0][3] = 1000 <<< IN_WIDTH/2; 
                  end
                  if (N_NEURONS > 1 && N_INPUTS > 0 && n==1 && i==0 && WGT_WIDTH==16) begin
                     // Setup to test ReLU to zero for neuron 1
                     current_test_weights[1][0] = -2000;
-                    if (N_INPUTS > 1) current_test_weights[1][1] = -1; // small neg to keep sum neg
+                    if (N_INPUTS > 1) current_test_weights[1][1] = -1 <<< IN_WIDTH/2; // small neg to keep sum neg
                  end
             end
         end

@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-// 1ns: unit� di tempo (Time Unit) ? tutte le durate (es. #10) saranno interpretate come 10 nanosecondi
+// 1ns: unità di tempo (Time Unit) ? tutte le durate (es. #10) saranno interpretate come 10 nanosecondi
 // 1ps: precisione di tempo (Time Precision) ? la simulazione considera il tempo con una risoluzione di 1 picosecondo
 
 module mac_tb;
@@ -41,6 +41,7 @@ module mac_tb;
     integer i;
 
     // LUCA: Variabili per il calcolo del risultato atteso
+    reg signed [ACC_WIDTH-1:0] current_acc;
     reg signed [ACC_WIDTH-1:0] expected_acc;
     reg signed [PROD_WIDTH-1:0] current_product;
     reg signed [ACC_WIDTH-1:0] current_product_ext;
@@ -52,10 +53,10 @@ module mac_tb;
         $dumpvars(0, mac_tb);
 
         // Initialize test values
-        a_vec[0] = 3;   b_vec[0] = 2;
-        a_vec[1] = -1;  b_vec[1] = 5;
-        a_vec[2] = 4;   b_vec[2] = -2;
-        a_vec[3] = 1;   b_vec[3] = 10;
+        a_vec[0] = 3 <<< (A_WIDTH/2);   b_vec[0] = 2 <<< (A_WIDTH/2);
+        a_vec[1] = -1 <<< (A_WIDTH/2);  b_vec[1] = 5 <<< (A_WIDTH/2);
+        a_vec[2] = 4 <<< (A_WIDTH/2);   b_vec[2] = -2 <<< (A_WIDTH/2);
+        a_vec[3] = 1 <<< (A_WIDTH/2);   b_vec[3] = 10 <<< (A_WIDTH/2);
 
         a = 0;
         b = 0;
@@ -70,7 +71,7 @@ module mac_tb;
 
         // --- Test 1: Operazione di START ---
         $display("\nTest 1: Start operation");
-	// First input with start = 1
+	    // First input with start = 1
         @(negedge clk); // Cambia gli input al negedge per essere stabili al posedge
         a = a_vec[0];
         b = b_vec[0];
@@ -78,9 +79,10 @@ module mac_tb;
         valid = 0;
 
         // Calcola il prodotto atteso esteso in segno
-        current_product = a_vec[0] * b_vec[0];
-        current_product_ext = {{(ACC_WIDTH - PROD_WIDTH){current_product[PROD_WIDTH-1]}}, current_product};
-        expected_acc = current_product_ext;
+        current_product = (a_vec[0] * b_vec[0]); // Shift right to adjust for the test vectors
+        current_product_ext = {{(ACC_WIDTH - PROD_WIDTH){current_product[PROD_WIDTH-1]}}, current_product}  ;
+        current_acc = current_product_ext;
+        expected_acc = current_acc >>> (A_WIDTH/2); // Shift right to adjust for the accumulator width
         $display("Time: %0t: Driving a=%d, b=%d, start=1. Expected product_ext=%d", $time, a, b, current_product_ext);
 
         @(posedge clk); // Il DUT campiona start, a, b e aggiorna acc
@@ -109,7 +111,8 @@ module mac_tb;
             // Calcola il prodotto corrente e aggiorna l'accumulatore atteso
             current_product = a_vec[i] * b_vec[i];
             current_product_ext = {{(ACC_WIDTH - PROD_WIDTH){current_product[PROD_WIDTH-1]}}, current_product};
-            expected_acc = expected_acc + current_product_ext;
+            current_acc = (current_acc + current_product_ext);
+            expected_acc = current_acc >>> (A_WIDTH/2); // Shift right to adjust for the accumulator width
             $display("Time: %0t: Driving a=%d, b=%d, valid=1. Expected current_product_ext=%d, Expected acc=%d", $time, a, b, current_product_ext, expected_acc);
 
             @(posedge clk); // Il DUT campiona valid, a, b e aggiorna acc
