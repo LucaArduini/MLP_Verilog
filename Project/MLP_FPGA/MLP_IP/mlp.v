@@ -187,7 +187,7 @@ module mlp #(
 	// === input and input_index regs ===
 	always @(posedge clk) begin
 		if (rst) begin
-			input_regs[0] <= 1;
+			input_regs[0] <= 16'b0000000100000000; // 1 in Q7.8 - Bias term for layer 0
 			input_index <= 1;
 		end else begin
 			case (state)
@@ -340,7 +340,7 @@ module mlp #(
         .outputs_flat(hidden_layer_outputs_flat)
     );
 	
-	assign output_layer_inputs_flat = {hidden_layer_outputs_flat,{(OUT_WIDTH-1){1'b0}},1'b1};
+	assign output_layer_inputs_flat = {hidden_layer_outputs_flat,16'b0000000100000000}; // Add bias term (1) to the inputs of the output layer
 
     // Layer 1: hidden -> output
     MLP_layer_output #(
