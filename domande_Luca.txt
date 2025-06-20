@@ -32,3 +32,6 @@
 - commenta mlp.v
 - pulisci porgetto GitHub da file inutili
 - capisci come Coco voleva fare la moltiplicazione
+
+- bias da 1 a 1_fixed va messo nel mlp.v
+- test statistico del training
