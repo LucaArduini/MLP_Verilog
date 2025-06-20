@@ -80,7 +80,7 @@ module MLP_layer_output #(
 		end
 	endgenerate
 
-    // === ReLU + Clipping stage ===
+    // === Clipping stage (ReLU not used here) ===
     // This block registers the MAC outputs into `outputs_flat` when 'output_en' is asserted.
     // Before registration, the MAC output (MAC_WIDTH bits) is clipped to fit within OUT_WIDTH bits.
     // There is NO ReLU function applied in this output layer.
