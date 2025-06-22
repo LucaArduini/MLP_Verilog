@@ -19,7 +19,7 @@
 #include <iomanip>                  // For std::fixed, std::setprecision (decimal output formatting)
 #include <numeric>                  // For std::accumulate, std::iota, std::inner_product
 
-#include "cnl/include/cnl/all.h"    // For cnl::scaled_integer and related functionalities (fixed_point_16)
+#include "../cnl/include/cnl/all.h" // For cnl::scaled_integer and related functionalities (fixed_point_16)
 
 using namespace std;
 namespace impl = cnl::_impl;        // Namespace alias for CNL implementation details

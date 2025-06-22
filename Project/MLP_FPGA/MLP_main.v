@@ -14,87 +14,99 @@
 //======================================================================
 
 module mlp #(
-    parameter N_INPUTS     = 2,
-    parameter N_HIDDEN     = 4,
-    parameter N_OUTPUT     = 1,
-    parameter IN_WIDTH     = 16,
-    parameter WGT_WIDTH    = 16,
-    parameter MAC_WIDTH    = 64,
-    parameter OUT_WIDTH    = 16
+    parameter N_INPUTS     = 2,                 // Number of data inputs to the network
+    parameter N_HIDDEN     = 4,                 // Number of neurons in the hidden layer
+    parameter N_OUTPUT     = 1,                 // Number of neurons in the output layer
+    parameter IN_WIDTH     = 16,                // Bit-width of a single input value
+    parameter WGT_WIDTH    = 16,                // Bit-width of a single weight value
+    parameter MAC_WIDTH    = 64,                // Bit-width of the internal MAC accumulator
+    parameter OUT_WIDTH    = 16                 // Bit-width of a single output value
 )(
-    input  wire clk,
-    input  wire rst,
+    input  wire clk,                            // Clock signal for the entire module
+    input  wire rst,                            // Reset signal to initialize the module
 
-    // Avalon-MM style interface (simplified)
-    input  wire        write_en,
-    input  wire [1:0]  addr,
-    input  wire [31:0] writedata,
-    output wire [31:0] readdata,
-    output wire        irq
+    input  wire        write_en,                // Global write enable signal
+    input  wire [1:0]  addr,                    // Address to select internal registers
+    input  wire [31:0] writedata,               // Data to be written
+    output wire [31:0] readdata,                // Data to be read
+    output wire        irq                      // Interrupt request signal to the processor
 );
-// The first input of each layer is hardcoded to 1.
-// This allows the first column of the weight matrix to represent the bias terms.
-	localparam N_INPUTS_HIDDEN = N_INPUTS + 1;
-	localparam N_INPUTS_OUTPUT = N_HIDDEN + 1;
-	
 
-	// === Address map
-	localparam ADDR_CTRL   = 2'd0;
-	localparam ADDR_INPUT  = 2'd1;
-	localparam ADDR_WEIGHT = 2'd2;
-	localparam ADDR_OUTPUT = 2'd3;
-	
-	localparam CTRL_NUM_BITS = 4;
-	localparam CTRL_RUN_BIT = 0;
-	localparam CTRL_DONE_BIT = 1;
-	localparam CTRL_INTERRUPT_BIT = 2;
-	localparam CTRL_SET_LAYER_BIT = 3;
-	
-    // === Internal Registers ===
-    reg [CTRL_NUM_BITS-1:0] ctrl;
-	reg [$clog2(N_OUTPUT)-1:0] out_sel;
-	
-    reg signed [IN_WIDTH-1:0] input_regs [0:N_INPUTS_HIDDEN-1];
-	
-    reg [$clog2(N_INPUTS_HIDDEN):0] input_index;
-	reg [$clog2(N_INPUTS_OUTPUT):0] hidden_index;
+    // The first input of each layer is hardcoded to 1.
+    // This allows the first column of the weight matrix to represent the bias terms.
+	localparam N_INPUTS_HIDDEN = N_INPUTS + 1;  // Number of inputs to hidden layer (data + bias)
+	localparam N_INPUTS_OUTPUT = N_HIDDEN + 1;  // Number of inputs to output layer (hidden outputs + bias)
 
-	// to access weigth matrix of layer 0 (hidden)
-    reg [$clog2(N_HIDDEN)-1:0] hidden_weight_row;
+
+
+	//======================================================================
+	// Address & Control Register Map
+	//======================================================================
+	localparam ADDR_CTRL   = 2'd0;              // Control/Status Register (R/W)
+	localparam ADDR_INPUT  = 2'd1;              // Input data FIFO (Write-only)
+	localparam ADDR_WEIGHT = 2'd2;              // Weight matrix FIFO (Write-only)
+	localparam ADDR_OUTPUT = 2'd3;              // Output data register (Read-only)
+	
+	localparam CTRL_NUM_BITS      = 4;
+	localparam CTRL_RUN_BIT       = 0;          // [W] Set to 1 to start computation. Cleared by HW.
+	localparam CTRL_DONE_BIT      = 1;          // [R] Set to 1 by HW when computation is finished. Cleared by SW write.
+	localparam CTRL_INTERRUPT_BIT = 2;          // [W] Set to 1 to enable interrupts when DONE is high.
+	localparam CTRL_SET_LAYER_BIT = 3;          // [W] Selects target for weight writes: 0=hidden layer, 1=output layer.
+
+
+
+    //======================================================================
+    // Internal Registers and Wires
+    //======================================================================
+    reg [CTRL_NUM_BITS-1:0] ctrl;                                   // Control and status register
+    reg [$clog2(N_OUTPUT)-1:0] out_sel;                             // Selects which output neuron to read via the OUTPUT address
+	
+    reg signed [IN_WIDTH-1:0] input_regs [0:N_INPUTS_HIDDEN-1];     // Stores the input vector. input_regs[0] is the bias.
+	
+    reg [$clog2(N_INPUTS_HIDDEN):0] input_index;                    // Counter to stream inputs to the hidden layer
+	reg [$clog2(N_INPUTS_OUTPUT):0] hidden_index;                   // Counter to stream hidden outputs to the output layer
+
+	// Pointers for writing to the weight matrix of layer 0 (hidden)
+    reg [$clog2(N_HIDDEN)-1:0]       hidden_weight_row;
     reg [$clog2(N_INPUTS_HIDDEN)-1:0] hidden_weight_col;
 	
-	// to access weigth matrix of layer 1 (output)
-    reg [$clog2(N_OUTPUT)-1:0] output_weight_row;
+	// Pointers for writing to the weight matrix of layer 1 (output)
+    reg [$clog2(N_OUTPUT)-1:0]       output_weight_row;
     reg [$clog2(N_INPUTS_OUTPUT)-1:0] output_weight_col;
-	
 
-	// ===
-    wire signed [OUT_WIDTH-1:0] hidden_to_output_input;
-    wire [N_OUTPUT*OUT_WIDTH-1:0] output_layer_outputs_flat;
-    wire [N_HIDDEN*OUT_WIDTH-1:0] hidden_layer_outputs_flat;
-	wire [N_INPUTS_OUTPUT*OUT_WIDTH-1:0] output_layer_inputs_flat;
+	// Wires for data transfer between layers
+    wire [N_OUTPUT*OUT_WIDTH-1:0] output_layer_outputs_flat;        // Flattened output vector from layer 1
+    wire [N_HIDDEN*OUT_WIDTH-1:0] hidden_layer_outputs_flat;        // Flattened output vector from layer 0
+	wire [N_INPUTS_OUTPUT*OUT_WIDTH-1:0] output_layer_inputs_flat;  // Flattened input vector for layer 1 (hidden outs + bias)
 
-    reg  start_layer_0;
-	reg  start_layer_1;
-	reg  valid_layer_0;
-	reg  valid_layer_1;
-    reg  relu_hidden;
-    reg  relu_output;
+    // Control signals generated by the FSM for the layer modules
+    reg  start_layer_0;                         // Single-cycle pulse to start layer 0 computation
+	reg  start_layer_1;                         // Single-cycle pulse to start layer 1 computation
+	reg  valid_layer_0;                         // High while feeding inputs to layer 0
+	reg  valid_layer_1;                         // High while feeding inputs to layer 1
+    reg  relu_hidden;                           // Single-cycle pulse to latch hidden layer outputs after activation
+    reg  relu_output;                           // Single-cycle pulse to latch final outputs
  
+	// Signal to restart the FSM, triggered by software acknowledging the DONE bit
 	wire restart;
-	
-		// === FSM State Machine ===
-	reg [3:0] state;
 
+
+
+	//======================================================================
+	// FSM: Top-Level Controller
+	//======================================================================
+	reg [3:0] state;                    // FSM state register
+
+    //--- FSM State Definitions ---
 	localparam START           = 4'd0,  // Initial state after reset
-			   IDLE            = 4'd1,  // Wait for software to start computation
-			   PRE_RUN_LAYER0  = 4'd2,  // Reset input index for layer 0
-			   RUN_LAYER0      = 4'd3,  // Feed inputs to hidden layer
-			   RUN_ReLU0       = 4'd4,  // One-cycle pulse to register hidden layer outputs
-			   PRE_RUN_LAYER1  = 4'd5,  // Reset input index for output layer
-			   RUN_LAYER1      = 4'd6,  // Feed hidden outputs to output layer
-			   RUN_ReLU1       = 4'd7,  // One-cycle pulse to register output layer outputs
-			   DONE            = 4'd8;  // Wait for software to acknowledge completion
+			   IDLE            = 4'd1,  // Wait for software to start computation, allow register writes
+			   PRE_RUN_LAYER0  = 4'd2,  // Prepare to run layer 0 by resetting its input index
+			   RUN_LAYER0      = 4'd3,  // Feed inputs to the hidden layer
+			   RUN_ReLU0       = 4'd4,  // Latch hidden layer outputs
+			   PRE_RUN_LAYER1  = 4'd5,  // Prepare to run layer 1 by resetting its input index
+			   RUN_LAYER1      = 4'd6,  // Feed hidden outputs to the output layer
+			   RUN_ReLU1       = 4'd7,  // Latch final network outputs
+			   DONE            = 4'd8;  // Computation complete, wait for software acknowledgement
 
 	always @(posedge clk) begin
 		if (rst || restart) begin
@@ -102,94 +114,114 @@ module mlp #(
 		end else begin
 			case (state)
 				START: begin
-					// Transition immediately to idle
+					// Initial state after reset. Transitions immediately to IDLE
 					state <= IDLE;
 				end
 
 				IDLE: begin
-					// Wait for software to set the run bit
+                    // Waits for the 'run' bit to be triggered to start computation
+                    // In this state, input registers and weight memories can be written
 					if (ctrl[CTRL_RUN_BIT])
 						state <= PRE_RUN_LAYER0;
 				end
 
 				PRE_RUN_LAYER0: begin
-					// Reset index before running layer 0
+					// One-cycle state to reset the input index for the hidden layer (layer0)
 					state <= RUN_LAYER0;
 				end
 
 				RUN_LAYER0: begin
-					// Process inputs to hidden layer
+                    // Stays active for N_INPUTS_HIDDEN cycles, feeding one input to the
+					// hidden layer (layer0) per cycle. This is the time required for
+					// the internal MAC units to compute the dot product for each neuron
 					if (input_index == N_INPUTS_HIDDEN - 1)
 						state <= RUN_ReLU0;
 				end
 
 				RUN_ReLU0: begin
-					// One-cycle enable to store hidden layer outputs
+					// A single-cycle pulse to apply the ReLU activation
 					state <= PRE_RUN_LAYER1;
 				end
 
 				PRE_RUN_LAYER1: begin
-					// Reset index before running layer 1
+					// One-cycle state to reset the input index for the output layer (layer1)
 					state <= RUN_LAYER1;
 				end
 
 				RUN_LAYER1: begin
-					// Process hidden outputs to final output layer
+					// Feeds the hidden layer outputs to the final layer (layer1), one per
+					// cycle, allowing its MAC units to compute the final dot products
 					if (hidden_index == N_INPUTS_OUTPUT - 1)
 						state <= RUN_ReLU1;
 				end
 
 				RUN_ReLU1: begin
-					// One-cycle enable to store final outputs
+					// A single-cycle pulse to latch the final network outputs
 					state <= DONE;
 				end
 
 				DONE: begin
-					// Wait for software to clear done flag
+					// Computation is finished. Sets the 'done' flag and waits for software
+					// to acknowledge by clearing it, which triggers a restart.
 					if (restart)
 						state <= START;
 				end
 
 				default: begin
+					// Safety default: return to START if the FSM enters an illegal state.
 					state <= START;
 				end
 			endcase
 		end
 	end
-	
-	// Writing address decoding
-	// === Address Decoder ===
+
+
+
+	//======================================================================
+	// Write Logic
+	//======================================================================
+    
+    // Decodes the write address to generate specific enable signals for the target registers.
 	reg wr_ctrl, wr_input, wr_weight;
 
 	always @* begin
-		// Default: no write
+		// By default, no register is selected for writing.
 		wr_ctrl   = 1'b0;
 		wr_input  = 1'b0;
 		wr_weight = 1'b0;
 
+		// Activate the specific write-enable signal based on the address and global write signal.
 		case (addr)
 			ADDR_CTRL:   wr_ctrl   = write_en;
 			ADDR_INPUT:  wr_input  = write_en && (state == IDLE);
-			ADDR_WEIGHT: wr_weight = write_en  && (state == IDLE);
-			default: ; // nothing
+			ADDR_WEIGHT: wr_weight = write_en && (state == IDLE);
+            // Data and weights can only be written when the FSM is IDLE to prevent data corruption
+			default: /*nothing*/;   
 		endcase
 	end
 	
-	// === Control reg
+
+	// --- Control Register Logic ---
 	always @(posedge clk) begin
 		if (rst) begin
 			ctrl <= 0;
+            out_sel <= 0;
 		end else begin
 			if (wr_ctrl) begin
-				ctrl <= writedata[CTRL_NUM_BITS-1:0];
-				out_sel <= writedata[31:16];
+				// Software writes to the control register
+				ctrl <= writedata[CTRL_NUM_BITS-1:0];           // This is where I actually write to the ctrl register
+				// Upper bits of writedata select the output neuron to read
+				out_sel <= writedata[31:16]; 
 			end else begin
+				// FSM updates status bits automatically
 				case (state)
 					START: begin
+						// On restart, clear the run and done flags
 						ctrl[CTRL_RUN_BIT] <= 1'b0;
 						ctrl[CTRL_DONE_BIT] <= 1'b0;
 					end
 					DONE: begin
+						// When finished, clear the run flag and set the done flag
 						ctrl[CTRL_RUN_BIT] <= 1'b0;
 						ctrl[CTRL_DONE_BIT] <= 1'b1;
 					end
@@ -197,50 +229,54 @@ module mlp #(
 			end
 		end
 	end
-	
-	// === input and input_index regs ===
+
+
+	// --- Input Vector Loading ---
 	always @(posedge clk) begin
 		if (rst) begin
-			input_regs[0] <= 16'b0000000100000000; // 1 in Q7.8 - Bias term for layer 0
-			input_index <= 1;
+			input_regs[0] <= 16'b0000000100000000;  // Hardcode the bias term (1.0 in Q7.8 format) on reset
+			input_index <= 1;                       // Start index at 1, as bias is at [0]
 		end else begin
 			case (state)
 				START: begin
-					input_index <= 1;
+					input_index <= 1;               // Reset index to prepare for new inputs
 				end
 				IDLE: begin
 					if (wr_input) begin
+						// Load input vector one value at a time, auto-incrementing the index
 						input_regs[input_index] <= writedata[IN_WIDTH-1:0];
 						input_index <= input_index + 1;
 					end
 				end
 				PRE_RUN_LAYER0: begin
-					input_index <=0;
+					input_index <= 0;               // Reset index to 0 to begin feeding all inputs (including bias)
 				end
 				RUN_LAYER0: begin
-					input_index <= input_index + 1;
+					input_index <= input_index + 1; // Increment to feed the next input value
 				end	
 			endcase
 		end
 	end
-	
-	// === hidden_index regs ===
+
+
+	// --- Hidden Layer Index Counter ---
 	always @(posedge clk) begin
 		if (rst) begin
 			hidden_index <= 0;
 		end else begin
 			case (state)
 				PRE_RUN_LAYER1: begin
-					hidden_index <=0;
+					hidden_index <= 0;                  // Reset index to 0 to begin feeding hidden outputs
 				end
 				RUN_LAYER1: begin
-					hidden_index <= hidden_index + 1;
+					hidden_index <= hidden_index + 1;   // Increment to feed next hidden output
 				end	
 			endcase
 		end
 	end
 
-	// === Writing weight matrices ===
+
+	// --- Weight Matrix Loading ---
 	always @(posedge clk) begin
 		if (rst) begin
 			hidden_weight_row <= 0;
@@ -257,6 +293,7 @@ module mlp #(
 				end
 				IDLE: begin
 					if (wr_weight) begin
+                        // Use CTRL_SET_LAYER_BIT to select which layer's weights to write
 						if (~ctrl[CTRL_SET_LAYER_BIT]) begin
 							// layer 0
 							if (hidden_weight_col == N_INPUTS_HIDDEN - 1) begin
@@ -287,13 +324,20 @@ module mlp #(
 			endcase
 		end
 	end
+
+
+
+	//======================================================================
+	// Control Signal Generation & IRQ
+	//======================================================================
 	
-	// === Control signals ====
-	
+    // A restart is triggered when software writes to the control register while DONE is high.
+	// This is the standard method for software to acknowledge completion and clear the 'done' flag.
 	assign restart = wr_ctrl && ctrl[CTRL_DONE_BIT];
 	
+	// FSM Output Logic: Generates layer control signals based on the current state.
 	always @* begin
-		// Default
+		// Default values to avoid latches
 		start_layer_0 = 1'b0;
 		start_layer_1 = 1'b0;
 		valid_layer_0 = 1'b0;
@@ -304,9 +348,9 @@ module mlp #(
 		case (state)
             RUN_LAYER0: begin
 				if (input_index == 0) begin
-					start_layer_0 = 1'b1;
+					start_layer_0 = 1'b1;   // Pulse 'start' on the first cycle
 				end
-                valid_layer_0 = 1'b1;
+                valid_layer_0 = 1'b1;       // 'valid' is high for the entire duration of input feeding
             end
 
             RUN_ReLU0: begin
@@ -327,12 +371,17 @@ module mlp #(
 		endcase
 	end
 	
-    // === IRQ ===
+    // --- IRQ ---
+    // Interrupt is asserted when computation is done AND interrupts are enabled by software.
     assign irq = ctrl[2] && ctrl[1]; // irq_en && done
 
-    // === MLP Layers ===
 
-    // Layer 0: input -> hidden
+
+    //======================================================================
+    // MLP Layer Instantiations
+    //======================================================================
+
+    // Layer 0: Input -> Hidden Layer
     MLP_layer_hidden #(
         .N_INPUTS(N_INPUTS_HIDDEN),
         .N_NEURONS(N_HIDDEN),
@@ -342,11 +391,11 @@ module mlp #(
         .OUT_WIDTH(OUT_WIDTH)
     ) layer0 (
         .clk(clk),
-        .wr_en(wr_weight && ~ctrl[CTRL_SET_LAYER_BIT]),
+        .wr_en(wr_weight && ~ctrl[CTRL_SET_LAYER_BIT]), // Enable write only when targeting layer 0
         .wr_row(hidden_weight_row),
         .wr_col(hidden_weight_col),
         .wr_weight(writedata[WGT_WIDTH-1:0]),
-        .input_value(input_regs[input_index]),
+        .input_value(input_regs[input_index]), // Current input value from vector
         .input_index(input_index),
         .valid(valid_layer_0),
         .start(start_layer_0),
@@ -354,46 +403,60 @@ module mlp #(
         .outputs_flat(hidden_layer_outputs_flat)
     );
 	
-	assign output_layer_inputs_flat = {hidden_layer_outputs_flat,16'b0000000100000000}; // Add bias term (1) to the inputs of the output layer
+    // Concatenate the outputs from the hidden layer with an additional constant value of 1,
+    // to include the bias term as input to the next (output) layer.
+	assign output_layer_inputs_flat = {hidden_layer_outputs_flat, 16'b0000000100000000};
+    // Why is the bias on the right this time instead of on the left?
+    // We would expect the bias to be on the left, since in the matrix the weights associated
+    // with the bias are in the first column. That’s true, but since the output layer will read
+    // the inputs from the flat matrix right to left, the bias needs to be the last element
+    // in the flat matrix so it will be read first.
 
-    // Layer 1: hidden -> output
+    // Layer 1: Hidden -> Output Layer
     MLP_layer_output #(
         .N_INPUTS(N_INPUTS_OUTPUT),
         .N_NEURONS(N_OUTPUT),
-        .IN_WIDTH(OUT_WIDTH),
+        .IN_WIDTH(OUT_WIDTH), // Input width is the output width of the previous layer
         .WGT_WIDTH(WGT_WIDTH),
         .MAC_WIDTH(MAC_WIDTH),
         .OUT_WIDTH(OUT_WIDTH)
     ) layer1 (
         .clk(clk),
-        .wr_en(wr_weight && ctrl[CTRL_SET_LAYER_BIT]),
+        .wr_en(wr_weight && ctrl[CTRL_SET_LAYER_BIT]), // Enable write only when targeting layer 1
         .wr_row(output_weight_row),
         .wr_col(output_weight_col),
         .wr_weight(writedata[WGT_WIDTH-1:0]),
-        .input_value(output_layer_inputs_flat[hidden_index*OUT_WIDTH +: OUT_WIDTH]),
+        .input_value(output_layer_inputs_flat[hidden_index*OUT_WIDTH +: OUT_WIDTH]), // Select current input from the flattened bus
         .input_index(hidden_index),
         .valid(valid_layer_1),
         .start(start_layer_1),
-        .output_en(relu_output),
+        .output_en(relu_output), // Use `output_en` to latch final values
         .outputs_flat(output_layer_outputs_flat)
     );
 
 
-// === Registered Read interface ===
-reg [31:0] readdata_reg;
-assign readdata = readdata_reg;
 
-always @(posedge clk) begin
-    if (rst) begin
-        readdata_reg <= 32'd0;
-    end else begin
-        case (addr)
-            ADDR_CTRL:   readdata_reg <= {out_sel, {(16-CTRL_NUM_BITS){1'b0}}, ctrl};
-            ADDR_OUTPUT: readdata_reg <= output_layer_outputs_flat[out_sel * OUT_WIDTH +: OUT_WIDTH];
-            default:     readdata_reg <= 32'd0;
-        endcase
+    //======================================================================
+    // Registered Read Logic
+    //======================================================================
+    reg [31:0] readdata_reg; // Registered output for better timing on the read path
+    assign readdata = readdata_reg;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            readdata_reg <= 32'd0;
+        end else begin
+            // Mux read data based on the address
+            case (addr)
+                // Reading from CTRL returns status bits and the current output selector
+                ADDR_CTRL:   readdata_reg <= {out_sel, {(16-CTRL_NUM_BITS){1'b0}}, ctrl};
+                // Reading from OUTPUT returns the selected neuron's value, zero-extended to 32 bits
+                ADDR_OUTPUT: readdata_reg <= output_layer_outputs_flat[out_sel * OUT_WIDTH +: OUT_WIDTH];
+                // Other addresses are not readable and return 0
+                default:     readdata_reg <= 32'd0;
+            endcase
+        end
     end
-end
 
 
 endmodule

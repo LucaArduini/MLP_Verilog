@@ -85,6 +85,11 @@ module MLP_layer_hidden #(
 	    integer n; // Loop variable for neurons
 		if (relu_en) begin
 			for (n = 0; n < N_NEURONS; n = n + 1) begin
+                // NOTE: This `for` loop does not execute sequentially over multiple clock cycles.
+                // During synthesis, it is "unrolled" to create N_NEURONS parallel copies of
+                // this logic. All comparisons happen concurrently, and the entire update
+                // completes within a single clock cycle when `relu_en` is asserted.
+
 				if (mac_outputs[n] < 0) begin                       // ReLU: if negative, output 0
 					outputs_flat[n*OUT_WIDTH +: OUT_WIDTH] <= 0;
 				end
