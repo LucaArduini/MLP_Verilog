@@ -46,7 +46,7 @@ using temp_accumulator_fp = cnl::scaled_integer<int64_t, cnl::power<-fractional_
 //                 Dataset parameters           //
 // //////////////////////////////////////////// //
 
-const int num_train = 150*150;      // number of training pattern (ensure this is a square number for sinc2D_gen)
+const int num_train = 150*150;      // number of training pattern (this must be a square number for sinc2D_gen)
 const int num_test = 2250;          // Number of test patterns
 
 
