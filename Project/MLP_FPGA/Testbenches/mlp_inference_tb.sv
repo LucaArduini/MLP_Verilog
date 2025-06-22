@@ -200,7 +200,7 @@ module alt_mlp_tb;
         $display("[%0t] Main TB: Expected output from behavioral function = %0d, Decimal = %0f", $time, tb_expected_output_value, tb_expected_output_value / 256.0);
 
         // --- DUT Configuration and Execution ---
-        // === Load input vector: x = [7, -3] ===
+        // === Load input vector: x = [x1, x2] ===
         write_reg(INPUT_FIFO_ADDR, tb_inputs[0]); // Use tb_inputs values
         write_reg(INPUT_FIFO_ADDR, tb_inputs[1]);
 

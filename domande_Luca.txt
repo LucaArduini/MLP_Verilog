@@ -26,12 +26,16 @@
     R: la conversione non viene fatta come la pensa Luca, viene fatta tutta con la "stessa conversione" -> torna
 
     DA FARE:
-- aggiusta dimensioni wire nel mlp.v
-- vedi con sinc a risultato negativo
+- aggiusta dimensioni wire nel mlp.v X
+- vedi con sinc a risultato negativo X
 - oltre che i pesi, anche l'input deve esser letto da txt anziché hardcoded
 - commenta mlp.v
 - pulisci porgetto GitHub da file inutili
 - capisci come Coco voleva fare la moltiplicazione
 
 - bias da 1 a 1_fixed va messo nel mlp.v
-- test statistico del training
+- test statistico del training 
+
+- testa con più neuroni
+- rileggere documentazione
+- guardare quanto codice togliere dalla documentazione
