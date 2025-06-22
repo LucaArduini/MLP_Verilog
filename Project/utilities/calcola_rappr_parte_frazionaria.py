@@ -1,3 +1,5 @@
+# Python script to compute the binary representation of the fractional part of a decimal number (between 0 and 1, excluded).
+
 def frazione_binaria_16bit(numero):
     if not (numero < 1):
         raise ValueError("Il numero deve essere compreso tra 0 e 1 (esclusi)")
@@ -24,5 +26,5 @@ def frazione_binaria_16bit(numero):
     return risultato_formattato
 
 # Esempio d'uso
-numero = 0.0044
+numero = 0.00
 frazione_binaria_16bit(numero)
