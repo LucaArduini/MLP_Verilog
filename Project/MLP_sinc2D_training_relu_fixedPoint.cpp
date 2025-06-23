@@ -517,7 +517,7 @@ fixed_point_16 MLP_predict_single_sample(const array<fixed_point_16, n_features>
     for (int h = 0; h < n_hidden; ++h) local_rA1[h] = max(fixed_point_16{0.0f}, local_rZ1[h]);
 
     for (int h = 0; h < n_hidden; ++h) {
-        std::cout << "a1[" << h << "] = " << cnl::unwrap(local_rA1[h]) << std::endl;
+        //std::cout << "a1[" << h << "] = " << cnl::unwrap(local_rA1[h]) << std::endl;
     }
 
     local_a1[0] = 1.0f;
@@ -526,7 +526,7 @@ fixed_point_16 MLP_predict_single_sample(const array<fixed_point_16, n_features>
     temp_accumulator_test sum_out = 0.0;
     for (int h = 0; h < n_hidden + 1; ++h) { 
         sum_out += static_cast<temp_accumulator_test>(w2[0][h]) * local_a1[h];
-        std::cout << cnl::unwrap(sum_out) << " sum_out after adding w2[0][" << h << "] = " << cnl::unwrap(w2[0][h]) << " * local_a1[" << h << "] = " << cnl::unwrap(local_a1[h]) << std::endl;
+        // std::cout << cnl::unwrap(sum_out) << " sum_out after adding w2[0][" << h << "] = " << cnl::unwrap(w2[0][h]) << " * local_a1[" << h << "] = " << cnl::unwrap(local_a1[h]) << std::endl;
     }
     local_rZ2[0] = static_cast<fixed_point_16>(sum_out);
 
