@@ -13,7 +13,7 @@
 //
 //======================================================================
 
-module mlp #(
+module MLP_main #(
     parameter N_INPUTS     = 2,                 // Number of data inputs to the network
     parameter N_HIDDEN     = 4,                 // Number of neurons in the hidden layer
     parameter N_OUTPUT     = 1,                 // Number of neurons in the output layer
@@ -84,8 +84,8 @@ module mlp #(
 	reg  start_layer_1;                         // Single-cycle pulse to start layer 1 computation
 	reg  valid_layer_0;                         // High while feeding inputs to layer 0
 	reg  valid_layer_1;                         // High while feeding inputs to layer 1
-    reg  relu_hidden;                           // Single-cycle pulse to latch hidden layer outputs after activation
-    reg  relu_output;                           // Single-cycle pulse to latch final outputs
+    reg  relu_en_output;                           // Single-cycle pulse to latch hidden layer outputs after activation
+    reg  clip_en_output;                           // Single-cycle pulse to latch final outputs
  
 	// Signal to restart the FSM, triggered by software acknowledging the DONE bit
 	wire restart;
@@ -105,7 +105,7 @@ module mlp #(
 			   RUN_ReLU0       = 4'd4,  // Latch hidden layer outputs
 			   PRE_RUN_LAYER1  = 4'd5,  // Prepare to run layer 1 by resetting its input index
 			   RUN_LAYER1      = 4'd6,  // Feed hidden outputs to the output layer
-			   RUN_ReLU1       = 4'd7,  // Latch final network outputs
+			   RUN_CLIP1       = 4'd7,  // Latch final network outputs
 			   DONE            = 4'd8;  // Computation complete, wait for software acknowledgement
 
 	always @(posedge clk) begin
@@ -152,10 +152,10 @@ module mlp #(
 					// Feeds the hidden layer outputs to the final layer (layer1), one per
 					// cycle, allowing its MAC units to compute the final dot products
 					if (hidden_index == N_INPUTS_OUTPUT - 1)
-						state <= RUN_ReLU1;
+						state <= RUN_CLIP1;
 				end
 
-				RUN_ReLU1: begin
+				RUN_CLIP1: begin
 					// A single-cycle pulse to latch the final network outputs
 					state <= DONE;
 				end
@@ -341,8 +341,8 @@ module mlp #(
 		start_layer_1 = 1'b0;
 		valid_layer_0 = 1'b0;
 		valid_layer_1 = 1'b0;
-		relu_hidden = 1'b0;
-		relu_output = 1'b0;
+		relu_en_output = 1'b0;
+		clip_en_output = 1'b0;
 		
 		case (state)
             RUN_LAYER0: begin
@@ -353,7 +353,7 @@ module mlp #(
             end
 
             RUN_ReLU0: begin
-                relu_hidden = 1'b1;
+                relu_en_output = 1'b1;
             end
 
 			RUN_LAYER1: begin
@@ -364,8 +364,8 @@ module mlp #(
 				valid_layer_1 = 1'b1;
             end
 
-            RUN_ReLU1: begin
-                relu_output = 1'b1;
+            RUN_CLIP1: begin
+                clip_en_output = 1'b1;
             end
 		endcase
 	end
@@ -398,7 +398,7 @@ module mlp #(
         .input_index(input_index),
         .valid(valid_layer_0),
         .start(start_layer_0),
-        .relu_en(relu_hidden),
+        .relu_en(relu_en_output),
         .outputs_flat(hidden_layer_outputs_flat)
     );
 	
@@ -429,7 +429,7 @@ module mlp #(
         .input_index(hidden_index),
         .valid(valid_layer_1),
         .start(start_layer_1),
-        .output_en(relu_output), // Use `output_en` to latch final values
+        .output_en(clip_en_output), // Use `output_en` to latch final values
         .outputs_flat(output_layer_outputs_flat)
     );
 
