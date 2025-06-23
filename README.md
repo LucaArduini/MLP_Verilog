@@ -19,7 +19,7 @@ The core of this project is the transformation of a software-based MLP into a ph
 As a specific use case, the network was trained to approximate the two-dimensional **sinc(x, y)** function. However, the resulting hardware is fully generic! By simply loading a new set of pre-trained weights, the accelerator can be used for any other task.
 
 <p align="center">
-  <img src="Project/utilities/sinc2D.png" alt="sinc2D Plot" width="550" />
+  <img src="Project/utilities/sinc2D.png" alt="sinc2D Plot" width="500" />
 </p>
 
 ---
