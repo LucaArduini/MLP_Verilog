@@ -19,7 +19,7 @@
 #include <iomanip>                  // For std::fixed, std::setprecision (decimal output formatting)
 #include <numeric>                  // For std::accumulate, std::iota, std::inner_product
 
-#include "../cnl/include/cnl/all.h"    // For cnl::scaled_integer and related functionalities (fixed_point_16)
+#include "../cnl/include/cnl/all.h" // For cnl::scaled_integer and related functionalities (fixed_point_16)
 
 using namespace std;
 namespace impl = cnl::_impl;        // Namespace alias for CNL implementation details
@@ -63,14 +63,14 @@ const int num_test = 2250;          // Number of test patterns
 //                 MLP parameters               //
 // //////////////////////////////////////////// //
 
-const int n_output = 1;             // Number of outputs (neurons in the output layer)
-const int n_features = 2;           // Number of input features
-const int n_hidden = 50;             // Number of neurons in the hidden layer
-const int epochs = 500;              // Number of training epochs
+const int n_output = 1;                         // Number of outputs (neurons in the output layer)
+const int n_features = 2;                       // Number of input features
+const int n_hidden = 50;                        // Number of neurons in the hidden layer
+const int epochs = 500;                         // Number of training epochs
 fixed_point_16 eta = fixed_point_16{1.0/256.0}; // Learning rate (smallest positive step for Q7.8)
-const int minibatches = 30;         // Number of mini-batches for training
+const int minibatches = 30;                     // Number of mini-batches for training
 
-vector<double> cost;                 // Store cost as double for accurate reporting (cleared per training run)
+vector<double> cost;                            // Store cost as double for accurate reporting (cleared per training run)
 
 // Weight matrices for the MLP
 array<array<fixed_point_16, n_features+1>, n_hidden> w1 = {};

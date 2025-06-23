@@ -290,7 +290,7 @@ module mlp_inference_tb;
         $display("[%0t] Main TB: MLP computation DONE. CTRL_REG = 0x%0h", $time, current_ctrl_reg_val);
         
         // === Read output ===
-        write_reg(OUTPUT_REG_ADDR, 32'd0);                                            // Set address to read output
+        write_reg(OUTPUT_REG_ADDR, 32'd0);                                  // Set address to read output
         @(posedge clk); 
         dut_output_value = readdata;                                        // Capture the registered output data
 

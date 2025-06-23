@@ -26,12 +26,4 @@
     R: la conversione non viene fatta come la pensa Luca, viene fatta tutta con la "stessa conversione" -> torna
 
     DA FARE:
-
-- commenta mlp.v e mlp_tb.v
-- togli ###
-- testa con più neuroni
-- due disegni Filippo
-- scrivi perché moltiplicazione si fa così
-
-
 - pulisci progetto GitHub da file inutili
