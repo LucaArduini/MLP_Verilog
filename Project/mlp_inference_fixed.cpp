@@ -135,8 +135,8 @@ bool load_weights(const string& filename_w1, const string& filename_w2) {
 
 int main() {
     // Specify the filenames where the trained weights are stored
-    string weights_file_w1 = "weights_w1_decFix.txt";
-    string weights_file_w2 = "weights_w2_decFix.txt";
+    string weights_file_w1 = "weights_w1.txt";
+    string weights_file_w2 = "weights_w2.txt";
 
     // Load the trained weights
     if (!load_weights(weights_file_w1, weights_file_w2)) {

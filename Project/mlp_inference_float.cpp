@@ -10,7 +10,7 @@ using namespace std;
 // //////////////////////////////////////////// //
 const int n_output = 1;             // Number of outputs
 const int n_features = 2;           // Number of input features
-const int n_hidden = 300;           // Number of neurons in the hidden layer
+const int n_hidden = 4;           // Number of neurons in the hidden layer
 
 // Weights are assumed to be loaded from a file
 array<array<float, n_features + 1>, n_hidden> w1;
@@ -33,28 +33,13 @@ void A_mult_B(const float* A, const float* B, float* C,
             for (int k = 0; k < colA; k++) {
                 
                 C[i * colB + j] += A[i * colA + k] * B[k * colB + j];
-                if (i == 0 && j == 0) {
-                    cout << "A[" << i << "][" << k << "] * B[" << k << "][" << j << "] = " 
-                         << A[i * colA + k] << " * " << B[k * colB + j] 
-                         << " = " << A[i * colA + k] * B[k * colB + j] << endl; // Debugging line
-                }
+                
             }
         }
-        if (i == 0) {
-            cout << "C_data[0] (cout): " << C[0] << endl; // Debugging line
-        }
+        
     }
 }
 
-
-// Sigmoid activation function (same as in training)
-array<float, n_hidden> MLP_sigmoid(const array<float, n_hidden> &z) {
-    array<float, n_hidden> sig;
-    for (int i = 0; i < n_hidden; ++i) {
-        sig[i] = 1.0 / (1.0 + exp(-z[i]));
-    }
-    return sig;
-}
 
 // This function computes the ReLU function for a scalar, a vector or a matrix
 void MLP_relu_inplace(const array<float, n_hidden> &z, array<float, n_hidden> &relu_out){
@@ -65,7 +50,7 @@ void MLP_relu_inplace(const array<float, n_hidden> &z, array<float, n_hidden> &r
     }
 }
 
-// Forward pass for a single input using matrix operations and MLP_sigmoid
+// Forward pass for a single input using matrix operations and MLP_relu_inplace
 array<float, n_output> MLP_inference(const array<float, n_features>& x) {
     // Input layer with bias
     a0_infer[0] = 1.0; // Bias
@@ -76,9 +61,8 @@ array<float, n_output> MLP_inference(const array<float, n_features>& x) {
     // Hidden layer pre-activation: rZ1 = w1 * a0
     A_mult_B(w1[0].data(), a0_infer.data(), rZ1_infer.data(),
              n_hidden, n_features + 1, 1); // Treat a0 as a column vector
-    printf("rZ1_infer[0] = %f\n", rZ1_infer[0]); // Debugging line
 
-    // Hidden layer activation: rA1 = sigmoid(rZ1)
+    // Hidden layer activation: rA1 = ReLU(rZ1)
     MLP_relu_inplace(rZ1_infer, rA1_infer);
 
     // Hidden layer output with bias
@@ -122,10 +106,7 @@ bool load_weights(const string& filename_w1, const string& filename_w2) {
                 return false;
             }
             w1[i][j] = value;
-            if (i < 1){
-                printf("w1[%d][%d] = %f\n", i, j, w1[i][j]); // Debugging line
-                printf("value = %f\n", value); // Debugging line
-            }
+            
         }
     }
 
@@ -160,7 +141,7 @@ int main() {
     }
 
     // Example inference
-    array<float, n_features> input_sample = {1.0, -2.0};
+    array<float, n_features> input_sample = {0.0, 0.0};
     array<float, n_output> prediction = MLP_inference(input_sample);
 
     cout << "Input: [" << input_sample[0] << ", " << input_sample[1] << "]" << endl;
