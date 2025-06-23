@@ -19,7 +19,7 @@
 #include <iomanip>                  // For std::fixed, std::setprecision (decimal output formatting)
 #include <numeric>                  // For std::accumulate, std::iota, std::inner_product
 
-#include "cnl/include/cnl/all.h"    // For cnl::scaled_integer and related functionalities (fixed_point_16)
+#include "../cnl/include/cnl/all.h"    // For cnl::scaled_integer and related functionalities (fixed_point_16)
 
 using namespace std;
 namespace impl = cnl::_impl;        // Namespace alias for CNL implementation details
@@ -65,7 +65,7 @@ const int num_test = 2250;          // Number of test patterns
 
 const int n_output = 1;             // Number of outputs (neurons in the output layer)
 const int n_features = 2;           // Number of input features
-const int n_hidden = 4;             // Number of neurons in the hidden layer
+const int n_hidden = 50;             // Number of neurons in the hidden layer
 const int epochs = 500;              // Number of training epochs
 fixed_point_16 eta = fixed_point_16{1.0/256.0}; // Learning rate (smallest positive step for Q7.8)
 const int minibatches = 30;         // Number of mini-batches for training
@@ -294,8 +294,8 @@ void sinc2D_gen(fixed_point_16* x_ptr, fixed_point_16* y_ptr, int num_patterns, 
 
 // Function to read the dataset from files
 void read_dataset_train(array<array<fixed_point_16, n_features>, num_train> &x, array<fixed_point_16, num_train> &y) {
-    ifstream x_file("sinc2D_x_train.txt");
-    ifstream y_file("sinc2D_y_train.txt");
+    ifstream x_file("../sinc2D_x_train.txt");
+    ifstream y_file("../sinc2D_y_train.txt");
     if (!x_file.is_open() || !y_file.is_open()) {
         cerr << "Error opening dataset files." << endl;
         return;
@@ -308,8 +308,8 @@ void read_dataset_train(array<array<fixed_point_16, n_features>, num_train> &x, 
 }
 
 void read_dataset_test(array<array<fixed_point_16, n_features>, num_test> &x, array<fixed_point_16, num_test> &y) {
-    ifstream x_file("sinc2D_x_test.txt");
-    ifstream y_file("sinc2D_y_test.txt");
+    ifstream x_file("../sinc2D_x_test.txt");
+    ifstream y_file("../sinc2D_y_test.txt");
     if (!x_file.is_open() || !y_file.is_open()) {
         cerr << "Error opening dataset files." << endl;
         return;
@@ -549,7 +549,7 @@ fixed_point_16 MLP_predict_single_sample(const array<fixed_point_16, n_features>
 const unsigned int RNG_SEED_BASE = 5134;
 
 int main() {
-    const int num_training_runs = 10; // Define N, the number of training runs
+    const int num_training_runs = 5; // Define N, the number of training runs
     std::vector<double> all_mse_train;
     std::vector<double> all_mse_test;
 
@@ -659,9 +659,9 @@ int main() {
     calculate_and_print_stats(all_mse_test, "Test");
 
     // --- Save weights from the LAST run (optional) ---
-    std::cout << "\nSaving weights from the final training run..." << std::endl;
-    save_weights_w1();
-    save_weights_w2();
+    //std::cout << "\nSaving weights from the final training run..." << std::endl;
+    //save_weights_w1();
+    //save_weights_w2();
 
     // --- Inference on Example Inputs (using weights from the last run) ---
     std::cout << "\n--- Inference on Example Inputs (using weights from last run) ---" << std::endl;
