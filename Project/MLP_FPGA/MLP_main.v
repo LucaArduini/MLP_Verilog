@@ -205,7 +205,7 @@ module mlp #(
 	always @(posedge clk) begin
 		if (rst) begin
 			ctrl <= 0;
-            out_sel <= 0;
+			
 		end else begin
 			if (wr_ctrl) begin
 				// Software writes to the control register

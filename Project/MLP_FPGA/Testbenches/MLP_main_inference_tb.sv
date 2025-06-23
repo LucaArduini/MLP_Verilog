@@ -15,7 +15,7 @@
 
 `timescale 1ns / 100ps
 
-module alt_mlp_tb;
+module mlp_inference_tb;
 
     //--- Testbench Parameters ---
     // DUT configuration parameters, must match the DUT's parameters.
@@ -182,7 +182,7 @@ module alt_mlp_tb;
 
         //--- Setup and Reset ---
         $dumpfile("mlp.vcd");
-        $dumpvars(0, alt_mlp_tb);
+        $dumpvars(0, mlp_inference_tb);
 
         clk = 0;
         rst = 1;
@@ -202,7 +202,7 @@ module alt_mlp_tb;
 
         // Read hidden layer weights from file into a temporary 1D array.
         $display("[%0t] Main TB: Reading hidden layer weights from weights_w1.txt...", $time);
-        $readmemb("input_data/weights_w1.txt", temp_hidden_weights_1d);
+        $readmemb("weights_w1.txt", temp_hidden_weights_1d);
         
         // Map the 1D data into the 2D array used by the behavioral model.
         k = 0;
@@ -222,7 +222,7 @@ module alt_mlp_tb;
 
         // Read output layer weights from file.
         $display("[%0t] Main TB: Reading output layer weights from weights_w2.txt...", $time);
-        $readmemb("input_data/weights_w2.txt", temp_output_weights_1d);
+        $readmemb("weights_w2.txt", temp_output_weights_1d);
 
         // Map to 2D array.
         k = 0;
@@ -290,7 +290,7 @@ module alt_mlp_tb;
         $display("[%0t] Main TB: MLP computation DONE. CTRL_REG = 0x%0h", $time, current_ctrl_reg_val);
         
         // === Read output ===
-        addr = OUTPUT_REG_ADDR;                                             // Set address to read output
+        write_reg(OUTPUT_REG_ADDR, 32'd0);                                            // Set address to read output
         @(posedge clk); 
         dut_output_value = readdata;                                        // Capture the registered output data
 
